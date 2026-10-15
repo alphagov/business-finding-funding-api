@@ -6,7 +6,7 @@ It is a proof of concept. The aim is for [Find funding for your business](https:
 
 It is written in [TypeScript](https://www.typescriptlang.org/) and built with [Express](https://expressjs.com/). It reads the schemes from a [Postgres](https://www.postgresql.org/) database, and runs on Heroku.
 
-The funding schemes are made-up examples until the real data is ready. See [Funding data](#funding-data).
+It publishes the schemes from TPX's One Platform schema workbook, which is pilot data still being checked. See [Funding data](#funding-data).
 
 ## What it includes
 
@@ -20,7 +20,7 @@ The funding schemes are made-up examples until the real data is ready. See [Fund
 | `/health` | Health check that returns `{"status":"ok"}`, or `{"status":"error"}` with status 503 if the database cannot be reached |
 | `/robots.txt` | Stops search engines crawling the API |
 
-- The data is public, so the API needs no password or API key, and any website can read it. There is no way to change data through the API: changes are made to the data file by pull request, and loaded into the database when the API is deployed.
+- The data is public, so the API needs no password or API key, and any website can read it. There is no way to change data through the API: changes are made in the One Platform schema workbook, copied into this repository by pull request, and imported when the API is deployed.
 - Errors use the [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem format. Filters that are not recognised are errors, not ignored.
 - Responses can be cached for 5 minutes.
 - In production, plain HTTP requests are redirected to HTTPS.
@@ -34,15 +34,16 @@ The funding schemes are made-up examples until the real data is ready. See [Fund
 | `src/app.ts` | Creates the Express application: the API routes, documentation and security headers |
 | `src/server.ts` | Starts the application on a port. The only file tied to running as a long-lived server |
 | `src/openapi.ts` | The OpenAPI specification, including the published scheme format |
-| `src/schemes.ts` | The format of the funding data file, and the checks run on it |
+| `src/schemes.ts` | The format of the schemes the API publishes, and of the example data file, with the checks run on it |
 | `src/db.ts` | Connects to the database |
 | `src/store.ts` | Reads the schemes from the database, in the format the API publishes |
 | `src/migrate.ts` | Brings the database up to date by running the files in `migrations/` |
-| `src/load.ts` | Loads the data file into the database |
+| `src/load.ts` | Loads the example data file into the database |
 | `src/records.ts` | Saves schemes to the database, with every field the tables hold |
 | `src/tpx/` | Imports the One Platform schema workbook. See [Importing the One Platform workbook](#importing-the-one-platform-workbook) |
 | `migrations/` | The SQL that creates the database tables and fills the fixed lists |
-| `data/funding-schemes.json` | The funding schemes |
+| `data/one-platform-schemes.json` | The extract of the One Platform schema workbook that each deploy imports |
+| `data/example-schemes.json` | Made-up schemes, for the tests and for running locally |
 | `compose.yaml` | A local database for running the API and its tests |
 | `test/` | Tests, written in TypeScript. `test/fixtures/tpx-workbook.xlsx` holds made-up schemes in the workbook's format |
 
@@ -50,32 +51,58 @@ The API keeps nothing on local disk between requests and takes all its settings 
 
 ## Funding data
 
-For now, the master copy of the funding schemes is `data/funding-schemes.json`. Each deploy loads it into the database, so the database matches the file: schemes are added or updated, and schemes no longer in the file are removed. While `example` is `true` in that file, the API says so in every list of schemes, and services using it should say the schemes are not real.
+The API publishes the schemes from TPX's One Platform schema workbook (version 1.3). It is pilot data, still being checked, so services should tell people to check the details with the provider before applying.
 
-Each scheme has:
+The workbook is the master copy. It is kept by TPX and DBT, not in this repository. The repository holds `data/one-platform-schemes.json`, an extract of the workbook's scheme rows, and each deploy imports it into the database, replacing the schemes there.
 
-| Field | Required | What it is |
-| ----- | -------- | ---------- |
-| `id` | Yes | A unique name using lower case letters and numbers, joined by hyphens or underscores, for example `growth-guarantee-scheme`. Services store this, for example in shortlists, so do not change it once published |
-| `type` | Yes | `loan`, `grant` or `equity` |
-| `name`, `provider`, `summary` | Yes | The scheme's name, who runs it, and what it offers in a sentence |
-| `url` | Yes | The provider's page about the scheme, starting `https://` |
-| `checkedOn` | Yes | When the details were last checked with the provider, like `2026-10-08` |
-| `eligibility` | Yes | A list of who can apply |
-| `areas` | No | Where the scheme is available: lists of `countries` (for example `England`), `regions` (for example `North West`) and `localAuthorities` (ONS codes, for example `E08000003` for Manchester). Leave out for the whole of the UK |
-| `amount` | No | `min` and `max` in pounds. Leave out either if there is no limit |
-| `sectors`, `purposes` | No | The sector and purpose values used by Find funding's questions. Leave out if the scheme is for all |
-| `closesOn` | No | The last day to apply |
-| `matchFundingRequired` | No | `true` if the business must pay part of the costs |
-| `interestRate`, `repaymentTerm`, `fees` | No | For loans |
-| `contribution`, `decisionTime` | No | For grants |
-| `investmentType` | No | For equity |
+The extract leaves out:
 
-The file is checked before it is loaded, and the database checks every value again as it is saved. The whole file is loaded in one transaction, so if anything is wrong nothing changes and the deploy stops. `npm test` checks the file and every response against the scheme format in the specification, and checks that the API publishes every scheme exactly as it is in the file, so the data, the database, the API and the specification cannot drift apart.
+- the workbook's comments, the names of the people who made them, links to internal documents and the document's properties, because this repository is public
+- the `verified_by` column, which will hold the names of the people who checked each scheme. That stays in the workbook
+
+### How the schemes are imported
+
+For each row of the Loans, Grants and Equities sheets, the import:
+
+- turns the workbook's values into the values on our lists, using the decisions in `src/tpx/mapping.ts`, for example the support goal `WORKING_CAPITAL` into Find funding's purpose `cash-flow`
+- checks every value
+- imports the scheme only if it has no problems. Guessing could change what a scheme is for, so nothing is guessed
+
+It lists the rows that were not imported and why, in a form that can be sent to TPX to fix in the workbook. The list is in the release phase log of every deploy. If no row can be imported, the import stops and nothing changes, so a broken file cannot remove every published scheme.
+
+With the workbook from 12 October 2026, 45 of the 62 rows are imported.
+
+### Updating the funding data
+
+When TPX send a new version of the workbook:
+
+1. Check it, without changing anything:
+
+   ```sh
+   npm run tpx:import -- "path/to/One platform schema v1.3.xlsx" --check
+   ```
+
+2. Update the extract:
+
+   ```sh
+   npm run tpx:extract -- "path/to/One platform schema v1.3.xlsx"
+   ```
+
+3. Open a pull request. Its changes to `data/one-platform-schemes.json` show exactly what has changed in the workbook. Merging it deploys the new schemes.
+
+Do not edit `data/one-platform-schemes.json` by hand. Changes to the data are made in the workbook, so there is only one master copy.
+
+### The mapping
+
+`src/tpx/mapping.ts` holds every decision about how a workbook value maps to ours, with the reason for each. A value that is on our list already needs no entry. A value that is neither on our list nor in the mapping stops its scheme being imported, and is reported. To change a decision, change the mapping and open a pull request.
+
+### Example data
+
+`data/example-schemes.json` holds made-up schemes in a simpler format. The tests use it, and `npm run db:examples` loads it into the local database in place of the workbook's schemes. While `example` is `true` in that file, the API says so in every list of schemes.
 
 ## Database
 
-The database is designed to hold everything in TPX's One Platform schema workbook (version 1.3), as well as the data in `data/funding-schemes.json`. The aim is to load the workbook's schemes into it next.
+The database holds everything in the One Platform schema workbook (version 1.3).
 
 | Table | What it holds |
 | ----- | ------------- |
@@ -98,29 +125,7 @@ The database enforces these rules, however data is added:
 
 These rules would have caught most of the problems found in the TPX files, such as sectors, business stages and statuses that are not on the lists, and closing dates written as text.
 
-The API does not publish everything the database can hold yet, for example the status, who can apply and business stages. These will be added to the API when the workbook's schemes are loaded.
-
-## Importing the One Platform workbook
-
-`npm run tpx:import` imports the schemes from TPX's One Platform schema workbook (version 1.3) into the database, replacing the schemes there:
-
-```sh
-npm run tpx:import -- "path/to/One platform schema v1.3.xlsx"
-```
-
-It reads the Loans, Grants and Equities sheets. For each scheme it:
-
-- turns the workbook's values into the values on our lists, using the decisions in `src/tpx/mapping.ts`, for example the support goal `WORKING_CAPITAL` into Find funding's purpose `cash-flow`
-- checks every value, as `npm run db:update` does for the data file
-- imports the scheme only if it has no problems. Guessing could change what a scheme is for, so nothing is guessed
-
-It then lists the schemes that were not imported and why, in a form that can be sent to TPX to fix in the workbook. Add `--check` to list the problems without changing the database.
-
-For now it is only run locally. The workbook is not in this repository, because TPX have not yet confirmed it is the master copy, or that it can be published. On Heroku, each deploy loads `data/funding-schemes.json` instead, which would replace any imported schemes.
-
-### The mapping
-
-`src/tpx/mapping.ts` holds every decision about how a workbook value maps to ours, with the reason for each. A value that is on our list already needs no entry. A value that is neither on our list nor in the mapping stops its scheme being imported, and is reported. To change a decision, change the mapping and run the import again.
+The API publishes everything the database holds about each scheme except who checked it and how it was found. See `/docs` for the fields. A county is published as the districts in it.
 
 ### Changing the database
 
@@ -159,7 +164,7 @@ npm run dev
 Then go to http://localhost:3001/docs.
 
 - `npm run db:start` starts a local Postgres database in Docker, using `compose.yaml`. It keeps its data when it is stopped.
-- `npm run db:update` runs any new migrations, then loads `data/funding-schemes.json`. Run it again after changing either.
+- `npm run db:update` runs any new migrations, then imports `data/one-platform-schemes.json`, as a deploy does. Run it again after changing either. `npm run db:examples` loads the made-up schemes instead.
 - `npm run dev` runs the TypeScript directly and restarts when you save a file.
 
 To stop the database, run `docker compose stop`. To delete it and start again, run `docker compose down --volumes`.
@@ -202,7 +207,7 @@ heroku logs --tail -a govuk-business-funding-api
 Heroku:
 
 - installs all dependencies, runs `npm run build` to compile the TypeScript, then removes the development-only packages
-- runs the release phase in `Procfile` before the new release goes live: `npm run release` runs any new migrations, then loads `data/funding-schemes.json` into the database. If it fails, the live release is not changed
+- runs the release phase in `Procfile` before the new release goes live: `npm run release` runs any new migrations, then imports `data/one-platform-schemes.json` into the database. If it fails, the live release is not changed
 - uses `Procfile` to start the web process (`npm start`, which runs `node dist/server.js`)
 - uses `engines.node` in `package.json` to choose the Node.js version
 - sets the `PORT` environment variable automatically

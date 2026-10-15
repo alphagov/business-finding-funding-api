@@ -5,6 +5,7 @@ import Ajv2020 from 'ajv/dist/2020'
 import { openApi } from '../src/openapi'
 import { postgresStore } from '../src/store'
 import { convertWorkbook, type Lists } from '../src/tpx/convert'
+import { extract, readExtract } from '../src/tpx/extract'
 import { importWorkbook, readLists, report } from '../src/tpx/import'
 import { BUSINESS_STAGES, GOALS, SECTORS, SPEND_TYPES, STATUSES, SUPPORT_SPEEDS, UK_WIDE_AREAS } from '../src/tpx/mapping'
 import { readWorkbook, type Cell, type Workbook } from '../src/tpx/workbook'
@@ -199,6 +200,69 @@ test('the imported schemes are published in the API format, with a county publis
 
   const { rows } = await db.pool.query("select status, support_speed, match_funding_percent, checked_by from schemes where id = 'example_county_grant'")
   assert.deepEqual(rows[0], { status: 'open', support_speed: '4-to-6-months', match_funding_percent: 50, checked_by: 'Tester' })
+
+  // The workbook's other fields are published too, but not who checked it.
+  assert.ok(county && !('checkedBy' in county))
+  assert.equal(county?.status, 'open')
+  assert.deepEqual(county?.spendTypes, ['capital', 'revenue'])
+  assert.deepEqual(county?.businessStages, ['established', 'trading'])
+  assert.equal(county?.supportSpeed, '4-to-6-months')
+  assert.equal(county?.matchFundingPercent, 50)
+  assert.equal(county?.paidInArrears, true)
+
+  const equity = schemes.find((scheme) => scheme.id === 'example_regional_equity')
+  assert.equal(equity?.followOnInvestmentAvailable, true)
+  assert.deepEqual(equity?.legalStructures, ['limited-company'])
+})
+
+test('the extract copies the rows, with dates as text, and leaves out who checked each scheme', async () => {
+  const workbook = await readWorkbook(WORKBOOK)
+  const copy = extract(workbook, 'tpx-workbook.xlsx')
+
+  assert.equal(copy.source, 'tpx-workbook.xlsx')
+  assert.equal(copy.rows.length, workbook.rows.length)
+  assert.equal(copy.rows[0].values.verified_date, '2026-09-09')
+  assert.ok(copy.rows.every((row) => !('verified_by' in row.values)))
+  assert.ok(Object.values(copy.columns).every((columns) => !columns.includes('verified_by')))
+
+  // The same schemes are imported from the extract as from the workbook,
+  // without who checked them.
+  const fromWorkbook = convertWorkbook(workbook, lists)
+  const fromExtract = convertWorkbook(JSON.parse(JSON.stringify(copy)), lists)
+  assert.deepEqual(fromExtract.rejected, fromWorkbook.rejected)
+  assert.deepEqual(fromExtract.records, fromWorkbook.records.map((record) => ({ ...record, checkedBy: undefined })))
+})
+
+test('the published extract can be imported, and is published in the API format', async () => {
+  const published = convertWorkbook(readExtract(), lists)
+  assert.ok(published.records.length > 0)
+
+  const fixture = await testDatabase({ load: false })
+  try {
+    await importWorkbook(fixture.pool)
+    const { schemes } = await postgresStore(fixture.pool).list({ types: [], sectors: [], purposes: [] })
+    const ajv = new Ajv2020({ strict: false, validateFormats: false, allErrors: true })
+    ajv.addSchema({ $id: 'openapi', ...openApi })
+    const validate = ajv.getSchema('openapi#/components/schemas/SchemeList')
+    assert.ok(validate?.({ example: false, count: schemes.length, schemes }), ajv.errorsText(validate?.errors))
+    assert.equal(schemes.length, published.records.length)
+  } finally {
+    await fixture.close()
+  }
+})
+
+test('nothing is imported if no scheme in the file can be', async () => {
+  const before = (await db.pool.query('select id from schemes order by id')).rows
+  const broken = path.join(__dirname, 'fixtures', 'broken-extract.json')
+  const { writeFileSync, rmSync } = await import('node:fs')
+  writeFileSync(broken, JSON.stringify({ source: 'broken.xlsx', columns: { Loans: ['scheme_id'] }, rows: [{ sheet: 'Loans', row: 2, values: { scheme_id: 'only_an_id' } }] }))
+
+  try {
+    await assert.rejects(importWorkbook(db.pool, broken), /No schemes can be imported, so the database has not changed/)
+    assert.deepEqual((await db.pool.query('select id from schemes order by id')).rows, before)
+  } finally {
+    rmSync(broken)
+  }
 })
 
 test('checking the workbook does not change the database', async () => {

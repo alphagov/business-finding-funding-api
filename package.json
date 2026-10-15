@@ -10,10 +10,12 @@
     "dev": "tsx watch src/server.ts",
     "typecheck": "tsc",
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
-    "release": "node dist/migrate.js && node dist/load.js",
+    "release": "node dist/migrate.js && node dist/tpx/import.js",
     "db:start": "docker compose up -d --wait",
-    "db:update": "tsx src/migrate.ts && tsx src/load.ts",
-    "tpx:import": "tsx src/tpx/import.ts"
+    "db:update": "tsx src/migrate.ts && tsx src/tpx/import.ts",
+    "tpx:import": "tsx src/tpx/import.ts",
+    "db:examples": "tsx src/load.ts",
+    "tpx:extract": "tsx src/tpx/extract.ts"
   },
   "engines": {
     "node": "24.x"

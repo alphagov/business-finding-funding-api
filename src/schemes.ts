@@ -8,6 +8,8 @@ import path from 'node:path'
 
 export type FundingType = 'loan' | 'grant' | 'equity'
 
+// The fields the data file can hold. The API publishes these and the extra
+// fields in PublishedScheme.
 export interface Scheme {
   id: string
   type: FundingType
@@ -43,6 +45,29 @@ export interface Scheme {
   eligibility: string[]
 }
 
+// Extra fields the API publishes from the database, mostly from the One
+// Platform schema workbook. See the Scheme schema in src/openapi.ts.
+export interface PublishedScheme extends Scheme {
+  status: string
+  whoCanApply?: string
+  applicationUrl?: string
+  statusCheckedOn?: string
+  replacedBy?: string
+  nextRound?: string
+  reviewBy?: string
+  businessStages?: string[]
+  legalStructures?: string[]
+  spendTypes?: string[]
+  supportSpeed?: string
+  matchFundingPercent?: number
+  premisesRequired?: boolean
+  premisesTenure?: string
+  paidInArrears?: boolean
+  subsidyControlApplies?: boolean
+  ownershipExchangeRequired?: boolean
+  followOnInvestmentAvailable?: boolean
+}
+
 export interface FundingData {
   // True while the file holds made-up schemes for testing. Services using
   // the API should then say the schemes are not real.
@@ -50,7 +75,7 @@ export interface FundingData {
   schemes: Scheme[]
 }
 
-const DATA_FILE = path.join(__dirname, '..', 'data', 'funding-schemes.json')
+const DATA_FILE = path.join(__dirname, '..', 'data', 'example-schemes.json')
 
 export const TYPES: FundingType[] = ['loan', 'grant', 'equity']
 

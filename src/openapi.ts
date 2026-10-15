@@ -21,7 +21,7 @@ export const openApi = {
     version: '0.1.0',
     summary: 'Funding schemes that businesses can apply for: loans, grants and equity investment.',
     description: [
-      'A proof of concept for GOV.UK Business. It holds made-up example schemes, so do not rely on the data.',
+      'A proof of concept for GOV.UK Business. It holds pilot data from the One Platform schema workbook, which is still being checked, so check the details with the provider before relying on them.',
       '',
       'The data is public, so you do not need to sign in or use an API key. You can only read data. Responses can be cached for 5 minutes.',
       '',
@@ -101,6 +101,11 @@ export const openApi = {
   components: {
     schemas: {
       FundingType: { type: 'string', enum: ['loan', 'grant', 'equity'] },
+      Status: {
+        type: 'string',
+        enum: ['open', 'open-paused', 'open-exhausted', 'closed-cyclical', 'closed-permanent', 'pre-launch'],
+        description: 'open: taking applications. open-paused: open, but not taking applications for now. open-exhausted: open, but the money has been used up. closed-cyclical: closed until the next round. closed-permanent: closed for good. pre-launch: not open yet. Services should only offer open schemes to businesses.'
+      },
       SchemeList: {
         type: 'object',
         required: ['example', 'count', 'schemes'],
@@ -112,15 +117,22 @@ export const openApi = {
       },
       Scheme: {
         type: 'object',
-        required: ['id', 'type', 'name', 'provider', 'summary', 'url', 'checkedOn', 'eligibility'],
+        required: ['id', 'type', 'name', 'provider', 'summary', 'url', 'status', 'checkedOn', 'eligibility'],
         properties: {
           id: { type: 'string', pattern: '^[a-z0-9]+([_-][a-z0-9]+)*$', description: 'A permanent identifier for the scheme: lower case letters and numbers, joined by hyphens or underscores.', example: 'start_up_loans_uk' },
           type: { $ref: '#/components/schemas/FundingType' },
           name: { type: 'string', minLength: 1, example: 'Example Growth Loan' },
           provider: { type: 'string', minLength: 1, description: 'The organisation that runs the scheme.' },
           summary: { type: 'string', minLength: 1, description: 'What the scheme offers, in a sentence.' },
+          whoCanApply: { type: 'string', minLength: 1, description: 'Who the scheme is for, in a sentence.' },
           url: { type: 'string', format: 'uri', pattern: '^https://', description: 'The provider\'s page about the scheme.' },
+          applicationUrl: { type: 'string', format: 'uri', pattern: '^https://', description: 'Where to apply, if it is not the provider\'s page.' },
+          status: { $ref: '#/components/schemas/Status' },
+          statusCheckedOn: { ...DATE, description: 'When the status was last checked, if separately from the other details.' },
+          replacedBy: { type: 'string', description: 'The identifier of the scheme that replaces this one.' },
+          nextRound: { type: 'string', description: 'What is known about the next funding round, for example "Future funding rounds may be announced".' },
           checkedOn: { ...DATE, description: 'When the details were last checked with the provider.' },
+          reviewBy: { ...DATE, description: 'When the details must next be checked.' },
           areas: {
             type: 'object',
             description: 'Where the scheme is available. Left out if it covers the whole of the UK. A business is covered if its area matches any of these.',
@@ -145,14 +157,25 @@ export const openApi = {
           },
           sectors: { ...TEXT_LIST, description: 'The sectors the scheme is for. Left out if it is open to every sector.' },
           purposes: { ...TEXT_LIST, description: 'What the funding can be used for. Left out if it can be used for anything.' },
+          businessStages: { ...TEXT_LIST, description: 'How long a business must have been trading: pre-start, first-year, trading or established. Left out if it is open to businesses at any stage.', example: ['trading', 'established'] },
+          legalStructures: { ...TEXT_LIST, description: 'The types of organisation that can apply, for example limited-company or charity. Left out if it is open to all.', example: ['limited-company', 'sole-trader'] },
+          spendTypes: { ...TEXT_LIST, description: 'What the money can be spent on: capital, revenue, r-and-d or training.', example: ['capital'] },
           closesOn: { ...DATE, description: 'The last day to apply. Left out if there is no deadline.' },
+          supportSpeed: { type: 'string', enum: ['less-than-1-month', '1-to-3-months', '4-to-6-months', 'over-6-months'], description: 'How soon a business can expect the money.' },
+          decisionTime: { type: 'string', description: 'How long a decision usually takes.' },
           matchFundingRequired: { type: 'boolean', description: 'Whether the business must pay part of the cost itself.' },
-          interestRate: { type: 'string' },
-          repaymentTerm: { type: 'string' },
-          fees: { type: 'string' },
+          matchFundingPercent: { type: 'integer', minimum: 0, maximum: 100, description: 'The share of the cost the business must pay itself.' },
+          premisesRequired: { type: 'boolean', description: 'Whether the business must have premises.' },
+          premisesTenure: { type: 'string', enum: ['own', 'rent', 'either'], description: 'Whether the business must own or rent its premises.' },
+          interestRate: { type: 'string', description: 'For loans.' },
+          repaymentTerm: { type: 'string', description: 'For loans.' },
+          fees: { type: 'string', description: 'For loans.' },
           contribution: { type: 'string', description: 'How much of the cost a grant pays.' },
-          decisionTime: { type: 'string' },
-          investmentType: { type: 'string' },
+          paidInArrears: { type: 'boolean', description: 'For grants: whether the money is paid after the business has spent it.' },
+          subsidyControlApplies: { type: 'boolean', description: 'For grants: whether subsidy control rules apply.' },
+          investmentType: { type: 'string', description: 'For equity investment, for example "Venture capital".' },
+          ownershipExchangeRequired: { type: 'boolean', description: 'For equity investment: whether the business must give investors a share of the business.' },
+          followOnInvestmentAvailable: { type: 'boolean', description: 'For equity investment: whether more investment may follow.' },
           eligibility: { ...TEXT_LIST, description: 'Who can apply, as short statements.' }
         }
       },

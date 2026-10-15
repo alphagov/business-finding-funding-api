@@ -1,5 +1,5 @@
 import type pg from 'pg'
-import type { FundingType, Scheme } from './schemes'
+import type { FundingType, PublishedScheme } from './schemes'
 
 // Reads the funding schemes from the database, in the format the API
 // publishes (the Scheme schema in src/openapi.ts).
@@ -13,12 +13,12 @@ export interface Filters {
 export interface SchemeList {
   // True if any scheme in the list is made up for testing.
   example: boolean
-  schemes: Scheme[]
+  schemes: PublishedScheme[]
 }
 
 export interface SchemeStore {
   list: (filters: Filters) => Promise<SchemeList>
-  get: (id: string) => Promise<Scheme | undefined>
+  get: (id: string) => Promise<PublishedScheme | undefined>
   // Throws an error if the database cannot be reached.
   check: () => Promise<void>
 }
@@ -36,8 +36,15 @@ const SCHEME_JSON = `
     'name', s.name,
     'provider', s.provider,
     'summary', s.summary,
+    'whoCanApply', s.who_can_apply,
     'url', s.url,
+    'applicationUrl', s.application_url,
+    'status', s.status,
+    'statusCheckedOn', s.status_checked_on,
+    'replacedBy', s.replaced_by,
+    'nextRound', s.next_round,
     'checkedOn', s.checked_on,
+    'reviewBy', s.review_by,
     'areas', case when exists (select 1 from scheme_areas where scheme_id = s.id) then json_build_object(
       'countries', (${areaNames('country')}),
       'regions', (${areaNames('region')}),
@@ -56,14 +63,25 @@ const SCHEME_JSON = `
       then json_build_object('min', s.amount_min, 'max', s.amount_max) end,
     'sectors', (select json_agg(sector order by sector) from scheme_sectors where scheme_id = s.id),
     'purposes', (select json_agg(purpose order by purpose) from scheme_purposes where scheme_id = s.id),
+    'businessStages', (select json_agg(business_stage order by business_stage) from scheme_business_stages where scheme_id = s.id),
+    'legalStructures', (select json_agg(legal_structure order by legal_structure) from scheme_legal_structures where scheme_id = s.id),
+    'spendTypes', (select json_agg(spend_type order by spend_type) from scheme_spend_types where scheme_id = s.id),
     'closesOn', s.closes_on,
+    'supportSpeed', s.support_speed,
+    'decisionTime', s.decision_time,
     'matchFundingRequired', s.match_funding_required,
+    'matchFundingPercent', s.match_funding_percent,
+    'premisesRequired', s.premises_required,
+    'premisesTenure', s.premises_tenure,
     'interestRate', l.interest_rate,
     'repaymentTerm', l.repayment_term,
     'fees', l.fees,
     'contribution', g.contribution,
-    'decisionTime', s.decision_time,
+    'paidInArrears', g.paid_in_arrears,
+    'subsidyControlApplies', g.subsidy_control_applies,
     'investmentType', e.investment_type,
+    'ownershipExchangeRequired', e.ownership_exchange_required,
+    'followOnInvestmentAvailable', e.follow_on_investment_available,
     'eligibility', coalesce((select json_agg(criterion order by position) from scheme_eligibility where scheme_id = s.id), '[]')
   ))`
 
@@ -97,12 +115,12 @@ const GET_SQL = `
 export function postgresStore (pool: pg.Pool): SchemeStore {
   return {
     async list ({ types, sectors, purposes }) {
-      const { rows } = await pool.query<{ scheme: Scheme, example: boolean }>(LIST_SQL, [types, sectors, purposes])
+      const { rows } = await pool.query<{ scheme: PublishedScheme, example: boolean }>(LIST_SQL, [types, sectors, purposes])
       return { example: rows.some((row) => row.example), schemes: rows.map((row) => row.scheme) }
     },
 
     async get (id) {
-      const { rows } = await pool.query<{ scheme: Scheme }>(GET_SQL, [id])
+      const { rows } = await pool.query<{ scheme: PublishedScheme }>(GET_SQL, [id])
       return rows[0]?.scheme
     },
 
