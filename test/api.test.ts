@@ -35,9 +35,9 @@ async function getJson (path: string): Promise<{ res: Response, body: any }> {
   return { res, body: await res.json() }
 }
 
-test('the funding data file matches the published schema', () => {
+test('the example data file matches the published schema, with the status the database adds', () => {
   const { example, schemes } = loadFunding()
-  assertMatches('SchemeList', { example, count: schemes.length, schemes })
+  assertMatches('SchemeList', { example, count: schemes.length, schemes: schemes.map((scheme) => ({ ...scheme, status: 'open' })) })
 })
 
 test('every scheme is listed, in the published format, and can be cached and read by any website', async () => {

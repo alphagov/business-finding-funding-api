@@ -31,11 +31,12 @@ async function published (): Promise<{ example: boolean, schemes: Scheme[] }> {
   return { example, schemes: schemes.map(sorted).sort((a, b) => a.id.localeCompare(b.id)) }
 }
 
+// The database gives the file's schemes the status open.
 function bySortedId (data: FundingData): { example: boolean, schemes: Scheme[] } {
-  return { example: data.example, schemes: data.schemes.map(sorted).sort((a, b) => a.id.localeCompare(b.id)) }
+  return { example: data.example, schemes: data.schemes.map((scheme) => ({ ...sorted(scheme), status: 'open' })).sort((a, b) => a.id.localeCompare(b.id)) }
 }
 
-test('the API publishes every scheme exactly as it is in the data file', async () => {
+test('the API publishes every scheme exactly as it is in the example data file', async () => {
   const file = loadFunding()
   const result = await loadSchemes(db.pool, file)
 

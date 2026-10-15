@@ -4,19 +4,21 @@ import { loadConfig } from '../config'
 import { createPool } from '../db'
 import { saveSchemes } from '../records'
 import { convertWorkbook, type Conversion, type Lists } from './convert'
-import { readWorkbook } from './workbook'
+import { EXTRACT_FILE, readExtract } from './extract'
+import { readWorkbook, type Workbook } from './workbook'
 
 // Imports the schemes from TPX's One Platform schema workbook into the
 // database, replacing the schemes there. Schemes with problems are not
 // imported, and the problems are listed so they can be fixed in the
 // workbook.
 //
-//   npm run tpx:import -- "path/to/One platform schema v1.3.xlsx"
+// Heroku runs this on every release (see Procfile), with the extract in
+// data/one-platform-schemes.json (see extract.ts). It can also read a
+// workbook, to check a new version before it is extracted:
 //
-// Add --check to list the problems without changing the database.
+//   npm run tpx:import -- "path/to/One platform schema v1.3.xlsx" --check
 //
-// For now this is only run locally. Each deploy loads data/funding-schemes.json
-// on Heroku, which would replace the imported schemes.
+// --check lists the problems without changing the database.
 
 export async function readLists (pool: pg.Pool): Promise<Lists> {
   const codes = async (table: string): Promise<Set<string>> =>
@@ -50,9 +52,17 @@ export function report (file: string, { records, rejected, ignoredColumns }: Con
   return lines.join('\n')
 }
 
-export async function importWorkbook (pool: pg.Pool, file: string, { check = false } = {}): Promise<{ conversion: Conversion, removed: string[] }> {
-  const conversion = convertWorkbook(await readWorkbook(file), await readLists(pool))
+// The extract in data/, or a workbook.
+async function read (file: string): Promise<Workbook> {
+  return file.endsWith('.json') ? readExtract(file) : await readWorkbook(file)
+}
+
+export async function importWorkbook (pool: pg.Pool, file: string = EXTRACT_FILE, { check = false } = {}): Promise<{ conversion: Conversion, removed: string[] }> {
+  const conversion = convertWorkbook(await read(file), await readLists(pool))
   if (check) return { conversion, removed: [] }
+
+  // Importing nothing would remove every published scheme.
+  if (!conversion.records.length) throw new Error(`${report(file, conversion)}\n\nNo schemes can be imported, so the database has not changed.`)
 
   const { removed } = await saveSchemes(pool, conversion.records)
   return { conversion, removed }
@@ -61,12 +71,7 @@ export async function importWorkbook (pool: pg.Pool, file: string, { check = fal
 if (require.main === module) {
   const args = process.argv.slice(2)
   const check = args.includes('--check')
-  const file = args.find((arg) => !arg.startsWith('--'))
-
-  if (!file) {
-    console.error('Give the path to the workbook, for example: npm run tpx:import -- "One platform schema v1.3.xlsx"')
-    process.exit(1)
-  }
+  const file = args.find((arg) => !arg.startsWith('--')) ?? EXTRACT_FILE
 
   const pool = createPool(loadConfig())
 

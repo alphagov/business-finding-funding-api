@@ -4,15 +4,14 @@ import { createPool } from './db'
 import { saveSchemes, type SchemeRecord } from './records'
 import { loadFunding, type FundingData, type Scheme } from './schemes'
 
-// Loads the funding schemes from data/funding-schemes.json into the
+// Loads the made-up schemes from data/example-schemes.json into the
 // database, so the database matches the file: schemes are added or
-// updated, and schemes no longer in the file are removed.
+// updated, and schemes no longer in the file are removed. The tests use
+// it, and `npm run db:examples` runs it locally. The live API imports the
+// One Platform schema workbook instead (see src/tpx/).
 //
 // The file is checked first, and everything is loaded in one transaction,
 // so if anything is wrong nothing changes.
-//
-// Heroku runs this on every release (see Procfile), because the file is the
-// master copy for now and is changed by pull request.
 
 // Fields the file allows on any scheme, but the database only holds for
 // one type of funding.
