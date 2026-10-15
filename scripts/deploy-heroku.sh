@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # Deploys the current commit to Heroku using the Heroku Platform API:
-# packages the code, uploads it, builds it, then checks the new release
-# starts, stays up and answers /health. If the new release fails those
+# packages the code, uploads it, builds it, waits for the release phase to
+# update the database, then checks the new release starts, stays up and
+# answers /health. If the new release fails those
 # checks, the app is rolled back to the release that was live before.
 #
 # Needs:
@@ -100,7 +101,34 @@ case "$status" in
 esac
 
 release_id="$(jq -r '.release.id' <<<"$build")"
-echo "Build succeeded. Waiting for the new release to start."
+echo "Build succeeded. Waiting for the release phase."
+
+# The release phase (see Procfile) updates the database before the new
+# release goes live. If it fails, Heroku keeps the live release, so there is
+# nothing to roll back.
+release_status=pending
+for _ in $(seq 1 30); do
+  release="$(heroku_api "$app_api/releases/$release_id")"
+  release_status="$(jq -r '.status' <<<"$release")"
+  [ "$release_status" != pending ] && break
+  sleep 10
+done
+
+release_log_url="$(jq -r '.output_stream_url // empty' <<<"$release")"
+if [ -n "$release_log_url" ]; then
+  echo "::group::Heroku release phase log"
+  curl --silent --show-error --max-time 120 "$release_log_url" || true
+  echo "::endgroup::"
+fi
+
+case "$release_status" in
+  succeeded) ;;
+  failed) fail "The release phase failed, so the new release was not put live. See the release phase log above." ;;
+  pending) fail "Timed out waiting for the release phase to finish." ;;
+  *) fail "Unexpected Heroku release status: $release_status" ;;
+esac
+
+echo "Release phase succeeded. Waiting for the new release to start."
 
 # Prints how many web dynos are on the new release in the given state.
 count_web_dynos() {

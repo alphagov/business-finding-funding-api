@@ -105,7 +105,7 @@ export const openApi = {
         type: 'object',
         required: ['example', 'count', 'schemes'],
         properties: {
-          example: { type: 'boolean', description: 'True while the data holds made-up schemes for testing.' },
+          example: { type: 'boolean', description: 'True if any scheme in the list is made up for testing.' },
           count: { type: 'integer', minimum: 0, description: 'How many schemes are in the list.' },
           schemes: { type: 'array', items: { $ref: '#/components/schemas/Scheme' } }
         }

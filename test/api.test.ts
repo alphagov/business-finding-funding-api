@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import Ajv2020 from 'ajv/dist/2020'
+import pg from 'pg'
 import { openApi } from '../src/openapi'
 import { loadFunding } from '../src/schemes'
-import { startApi, type TestServer } from './helpers'
+import { startApi, testDatabase, type TestDatabase, type TestServer } from './helpers'
 
 // Checks values against the schemas in the OpenAPI specification. The
 // specification's other sections are not JSON Schema, so are ignored.
@@ -16,14 +17,17 @@ function assertMatches (schema: string, value: unknown): void {
   assert.ok(validate(value), ajv.errorsText(validate.errors))
 }
 
+let db: TestDatabase
 let api: TestServer
 
 before(async () => {
-  api = await startApi()
+  db = await testDatabase()
+  api = await startApi(db.pool)
 })
 
-after(() => {
+after(async () => {
   api.close()
+  await db.close()
 })
 
 async function getJson (path: string): Promise<{ res: Response, body: any }> {
@@ -105,6 +109,24 @@ test('the specification and documentation are published', async () => {
   assert.match(await (await fetch(`${api.baseUrl}/docs/start.js`)).text(), /url: '\/openapi.json', dom_id: '#swagger-ui', validatorUrl: null/)
   assert.equal((await fetch(`${api.baseUrl}/`, { redirect: 'manual' })).headers.get('location'), '/docs')
   assert.deepEqual((await getJson('/health')).body, { status: 'ok' })
+})
+
+test('the health check fails if the database cannot be reached', async () => {
+  const unreachable = new pg.Pool({ connectionString: 'postgres://funding:funding@127.0.0.1:1/funding', connectionTimeoutMillis: 1000 })
+  const broken = await startApi(unreachable)
+
+  try {
+    const res = await fetch(`${broken.baseUrl}/health`)
+    assert.equal(res.status, 503)
+    assert.deepEqual(await res.json(), { status: 'error' })
+
+    const schemes = await fetch(`${broken.baseUrl}/v1/schemes`)
+    assert.equal(schemes.status, 500)
+    assertMatches('Problem', await schemes.json())
+  } finally {
+    broken.close()
+    await unreachable.end()
+  }
 })
 
 test('search engines are asked not to list the API', async () => {
