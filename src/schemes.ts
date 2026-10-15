@@ -78,7 +78,7 @@ export function checkSchemes (schemes: unknown): string[] {
       if (typeof scheme[field] !== 'string' || scheme[field] === '') problem(`${field} is missing`)
     }
     if (typeof scheme.id === 'string') {
-      if (!/^[a-z0-9-]+$/.test(scheme.id)) problem('id must only use lower case letters, numbers and hyphens')
+      if (!/^[a-z0-9]+([_-][a-z0-9]+)*$/.test(scheme.id)) problem('id must use lower case letters and numbers, joined by hyphens or underscores')
       if (ids.has(scheme.id)) problem('id is used more than once')
       ids.add(scheme.id)
     }

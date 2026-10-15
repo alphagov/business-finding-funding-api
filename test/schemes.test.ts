@@ -35,7 +35,7 @@ test('problems with the funding data are reported', () => {
   ])
 
   assert.deepEqual(problems, [
-    'Bad Id: id must only use lower case letters, numbers and hyphens',
+    'Bad Id: id must use lower case letters and numbers, joined by hyphens or underscores',
     'Bad Id: url must start with https://',
     'Bad Id: checkedOn must be a date like 2026-10-08',
     'two: type must be one of loan, grant, equity',

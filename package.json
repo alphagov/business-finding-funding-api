@@ -12,7 +12,8 @@
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
     "release": "node dist/migrate.js && node dist/load.js",
     "db:start": "docker compose up -d --wait",
-    "db:update": "tsx src/migrate.ts && tsx src/load.ts"
+    "db:update": "tsx src/migrate.ts && tsx src/load.ts",
+    "tpx:import": "tsx src/tpx/import.ts"
   },
   "engines": {
     "node": "24.x"
@@ -24,7 +25,8 @@
   "license": "MIT",
   "dependencies": {
     "express": "^5.3.0",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "read-excel-file": "^9.3.12"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

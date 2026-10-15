@@ -23,6 +23,10 @@ export interface SchemeStore {
   check: () => Promise<void>
 }
 
+const areaNames = (level: string): string => `
+  select json_agg(a.name order by a.name) from scheme_areas sa join areas a on a.code = sa.area_code
+  where sa.scheme_id = s.id and a.level = '${level}'`
+
 // Builds one scheme as JSON. Fields with no value are left out, as they are
 // in the data file.
 const SCHEME_JSON = `
@@ -34,16 +38,20 @@ const SCHEME_JSON = `
     'summary', s.summary,
     'url', s.url,
     'checkedOn', s.checked_on,
-    'areas', (
-      select json_build_object(
-        'countries', json_agg(a.name order by a.name) filter (where a.level = 'country'),
-        'regions', json_agg(a.name order by a.name) filter (where a.level = 'region'),
-        'localAuthorities', json_agg(a.code order by a.code) filter (where a.level = 'local-authority')
+    'areas', case when exists (select 1 from scheme_areas where scheme_id = s.id) then json_build_object(
+      'countries', (${areaNames('country')}),
+      'regions', (${areaNames('region')}),
+      -- A county is published as the districts in it.
+      'localAuthorities', (
+        select json_agg(code order by code) from (
+          select sa.area_code as code from scheme_areas sa join areas a on a.code = sa.area_code
+          where sa.scheme_id = s.id and a.level = 'local-authority'
+          union
+          select cd.district_code from scheme_areas sa join county_districts cd on cd.county_code = sa.area_code
+          where sa.scheme_id = s.id
+        ) as codes
       )
-      from scheme_areas sa join areas a on a.code = sa.area_code
-      where sa.scheme_id = s.id
-      having count(*) > 0
-    ),
+    ) end,
     'amount', case when s.amount_min is not null or s.amount_max is not null
       then json_build_object('min', s.amount_min, 'max', s.amount_max) end,
     'sectors', (select json_agg(sector order by sector) from scheme_sectors where scheme_id = s.id),

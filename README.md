@@ -39,10 +39,12 @@ The funding schemes are made-up examples until the real data is ready. See [Fund
 | `src/store.ts` | Reads the schemes from the database, in the format the API publishes |
 | `src/migrate.ts` | Brings the database up to date by running the files in `migrations/` |
 | `src/load.ts` | Loads the data file into the database |
+| `src/records.ts` | Saves schemes to the database, with every field the tables hold |
+| `src/tpx/` | Imports the One Platform schema workbook. See [Importing the One Platform workbook](#importing-the-one-platform-workbook) |
 | `migrations/` | The SQL that creates the database tables and fills the fixed lists |
 | `data/funding-schemes.json` | The funding schemes |
 | `compose.yaml` | A local database for running the API and its tests |
-| `test/` | Tests, written in TypeScript |
+| `test/` | Tests, written in TypeScript. `test/fixtures/tpx-workbook.xlsx` holds made-up schemes in the workbook's format |
 
 The API keeps nothing on local disk between requests and takes all its settings from environment variables, so it can move from Heroku to another platform by replacing `src/server.ts` rather than rewriting the app.
 
@@ -54,7 +56,7 @@ Each scheme has:
 
 | Field | Required | What it is |
 | ----- | -------- | ---------- |
-| `id` | Yes | A unique name using lower case letters, numbers and hyphens, for example `growth-guarantee-scheme`. Services store this, for example in shortlists, so do not change it once published |
+| `id` | Yes | A unique name using lower case letters and numbers, joined by hyphens or underscores, for example `growth-guarantee-scheme`. Services store this, for example in shortlists, so do not change it once published |
 | `type` | Yes | `loan`, `grant` or `equity` |
 | `name`, `provider`, `summary` | Yes | The scheme's name, who runs it, and what it offers in a sentence |
 | `url` | Yes | The provider's page about the scheme, starting `https://` |
@@ -79,10 +81,11 @@ The database is designed to hold everything in TPX's One Platform schema workboo
 | ----- | ------------- |
 | `schemes` | What every scheme has, whatever its type: name, provider, summary, who can apply, web addresses, status and replacement scheme, amounts, match funding, closing date, how soon the money comes, when the details were checked and by whom, and when they must next be checked |
 | `loan_details`, `grant_details`, `equity_details` | Details for each type of funding, for example interest rates for loans. Each type has its own table, so a new type, such as business advice, can be added without changing the `schemes` table |
-| `scheme_sectors`, `scheme_purposes`, `scheme_areas`, `scheme_business_stages`, `scheme_legal_structures` | The lists on each scheme. A list is left empty when the scheme is open to all |
+| `scheme_sectors`, `scheme_purposes`, `scheme_areas`, `scheme_business_stages`, `scheme_legal_structures`, `scheme_spend_types` | The lists on each scheme. A list is left empty when the scheme is open to all |
 | `scheme_eligibility` | Who can apply, as short statements, in order |
 | `funding_types`, `scheme_statuses`, `source_types`, `support_speeds`, `spend_types`, `sectors`, `purposes`, `business_stages`, `legal_structures` | The fixed lists of values. Sectors and purposes are the same as Find funding's questions. The others come from the One Platform data dictionary |
-| `areas` | Countries, English regions and all 361 local authorities, with their ONS codes, from the ONS Open Geography Portal |
+| `areas` | Countries, English regions, the 21 county councils and all 361 local authorities, with their ONS codes, from the ONS Open Geography Portal |
+| `county_districts` | The districts in each county council. The API publishes a county as its districts, so a business in any of them is covered |
 | `schema_migrations` | Which files in `migrations/` have been run |
 
 The database enforces these rules, however data is added:
@@ -93,9 +96,31 @@ The database enforces these rules, however data is added:
 - web addresses start with `https://`, the minimum amount is no more than the maximum, percentages are between 0 and 100, and the review date is not before the checked date
 - removing a scheme removes its details and lists
 
-These rules would have caught most of the problems found in the TPX files, such as sectors and goals that are not on the lists, and the old area code for Durham County Council.
+These rules would have caught most of the problems found in the TPX files, such as sectors, business stages and statuses that are not on the lists, and closing dates written as text.
 
 The API does not publish everything the database can hold yet, for example the status, who can apply and business stages. These will be added to the API when the workbook's schemes are loaded.
+
+## Importing the One Platform workbook
+
+`npm run tpx:import` imports the schemes from TPX's One Platform schema workbook (version 1.3) into the database, replacing the schemes there:
+
+```sh
+npm run tpx:import -- "path/to/One platform schema v1.3.xlsx"
+```
+
+It reads the Loans, Grants and Equities sheets. For each scheme it:
+
+- turns the workbook's values into the values on our lists, using the decisions in `src/tpx/mapping.ts`, for example the support goal `WORKING_CAPITAL` into Find funding's purpose `cash-flow`
+- checks every value, as `npm run db:update` does for the data file
+- imports the scheme only if it has no problems. Guessing could change what a scheme is for, so nothing is guessed
+
+It then lists the schemes that were not imported and why, in a form that can be sent to TPX to fix in the workbook. Add `--check` to list the problems without changing the database.
+
+For now it is only run locally. The workbook is not in this repository, because TPX have not yet confirmed it is the master copy, or that it can be published. On Heroku, each deploy loads `data/funding-schemes.json` instead, which would replace any imported schemes.
+
+### The mapping
+
+`src/tpx/mapping.ts` holds every decision about how a workbook value maps to ours, with the reason for each. A value that is on our list already needs no entry. A value that is neither on our list nor in the mapping stops its scheme being imported, and is reported. To change a decision, change the mapping and run the import again.
 
 ### Changing the database
 
