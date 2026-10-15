@@ -114,7 +114,7 @@ export const openApi = {
         type: 'object',
         required: ['id', 'type', 'name', 'provider', 'summary', 'url', 'checkedOn', 'eligibility'],
         properties: {
-          id: { type: 'string', pattern: '^[a-z0-9-]+$', description: 'A permanent identifier for the scheme.', example: 'example-growth-loan' },
+          id: { type: 'string', pattern: '^[a-z0-9]+([_-][a-z0-9]+)*$', description: 'A permanent identifier for the scheme: lower case letters and numbers, joined by hyphens or underscores.', example: 'start_up_loans_uk' },
           type: { $ref: '#/components/schemas/FundingType' },
           name: { type: 'string', minLength: 1, example: 'Example Growth Loan' },
           provider: { type: 'string', minLength: 1, description: 'The organisation that runs the scheme.' },

@@ -34,7 +34,7 @@ test('migrations are recorded, and only run once', async () => {
   assert.deepEqual(await migrate(db.pool), [])
 
   const { rows } = await db.pool.query('select name from schema_migrations order by name')
-  assert.deepEqual(rows.map((row) => row.name), ['001-create-funding-tables.sql', '002-add-list-values.sql', '003-add-ons-areas.sql'])
+  assert.deepEqual(rows.map((row) => row.name), ['001-create-funding-tables.sql', '002-add-list-values.sql', '003-add-ons-areas.sql', '004-hold-the-tpx-workbook.sql'])
 })
 
 test('the fixed lists and ONS areas are loaded', async () => {
@@ -46,6 +46,8 @@ test('the fixed lists and ONS areas are loaded', async () => {
   assert.equal(await count("select count(*) from areas where level = 'country'"), 4)
   assert.equal(await count("select count(*) from areas where level = 'region'"), 9)
   assert.equal(await count("select count(*) from areas where level = 'local-authority'"), 361)
+  assert.equal(await count("select count(*) from areas where level = 'county'"), 21)
+  assert.equal(await count("select count(*) from county_districts"), 164)
 })
 
 test('a scheme can be saved with values from the lists', async () => {
@@ -66,8 +68,8 @@ test('values that are not on the lists cannot be saved', async () => {
     ['scheme_purposes', 'purpose', 'HERITAGE'],
     ['scheme_business_stages', 'business_stage', 'start_up'],
     ['scheme_legal_structures', 'legal_structure', 'social_enterprise'],
-    // The old Durham County Council code, replaced in 2009.
-    ['scheme_areas', 'area_code', 'E10000007']
+    // Cumbria County Council, replaced by two unitary councils in 2023.
+    ['scheme_areas', 'area_code', 'E10000006']
   ]) {
     await assert.rejects(
       attempt([SCHEME, ['test-loan', 'loan']], [`insert into ${table} (scheme_id, ${column}) values ('test-loan', $1)`, [value]]),
