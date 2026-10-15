@@ -1,0 +1,32 @@
+{
+  "name": "business-finding-funding-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Funding data API – a read-only API over UK funding schemes for businesses",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc",
+    "test": "node --import tsx --test \"test/**/*.test.ts\""
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alphagov/business-finding-funding-api.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.19.1",
+    "ajv": "8.20.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
