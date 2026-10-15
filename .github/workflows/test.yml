@@ -9,9 +9,13 @@ on:
 permissions:
   contents: read
 
+# Both jobs use Ubuntu 26.04, the same version as Heroku's heroku-26 stack,
+# rather than ubuntu-latest, so the version only changes when we change it.
+# Change it here when the Heroku stack changes.
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     # The same database as compose.yaml, which the tests use.
     services:
@@ -48,7 +52,7 @@ jobs:
   deploy:
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     environment:
       name: heroku
