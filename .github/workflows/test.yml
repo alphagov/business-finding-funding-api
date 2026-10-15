@@ -1,0 +1,51 @@
+name: Test and deploy
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run build
+
+      - run: npm test
+
+  # Deploys main to Heroku once the tests pass. Run the workflow by hand
+  # on main to redeploy without a code change.
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: heroku
+      url: https://govuk-business-funding-api-701ff32e2a83.herokuapp.com/docs
+    concurrency:
+      group: deploy-heroku
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+
+      - run: scripts/deploy-heroku.sh
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: govuk-business-funding-api

@@ -1,0 +1,270 @@
+{
+  "example": true,
+  "schemes": [
+    {
+      "id": "example-growth-loan",
+      "type": "loan",
+      "name": "Example Growth Loan",
+      "provider": "Example Business Lender",
+      "summary": "Established businesses can borrow to grow, manage working capital, buy equipment or expand.",
+      "url": "https://www.example.com/growth-loan",
+      "checkedOn": "2026-09-09",
+      "amount": {
+        "min": 25001,
+        "max": 250000
+      },
+      "interestRate": "9% to 15% above the Bank of England base rate",
+      "repaymentTerm": "Up to 5 years",
+      "fees": "4% arrangement fee",
+      "eligibility": [
+        "Trading for at least 3 years",
+        "Unable to get enough finance from a bank",
+        "Business plan and financial forecasts"
+      ]
+    },
+    {
+      "id": "example-government-backed-loan",
+      "type": "loan",
+      "name": "Example Government-backed Loan",
+      "provider": "Example accredited lenders",
+      "summary": "Government-backed finance to help smaller UK businesses grow, invest and manage cash flow.",
+      "url": "https://www.example.com/government-backed-loan",
+      "checkedOn": "2026-09-09",
+      "amount": {
+        "max": 2000000
+      },
+      "purposes": [
+        "grow-sales",
+        "equipment",
+        "cash-flow",
+        "productivity",
+        "premises",
+        "new-product"
+      ],
+      "interestRate": "Varies by lender",
+      "repaymentTerm": "Up to 10 years for term loans",
+      "fees": "Varies by lender",
+      "eligibility": [
+        "UK-based trading business with turnover up to £45 million",
+        "Not in insolvency proceedings"
+      ]
+    },
+    {
+      "id": "example-north-west-loan",
+      "type": "loan",
+      "name": "Example North West Business Loan",
+      "provider": "Example Regional Fund",
+      "summary": "Loans for small and medium-sized businesses in the North West to start, grow or expand.",
+      "url": "https://www.example.com/north-west-loan",
+      "checkedOn": "2026-10-05",
+      "areas": {
+        "regions": [
+          "North West"
+        ]
+      },
+      "amount": {
+        "min": 25000,
+        "max": 250000
+      },
+      "interestRate": "Set when you apply",
+      "repaymentTerm": "Agreed when you apply",
+      "fees": "Set when you apply",
+      "eligibility": [
+        "Based in the North West, or moving there",
+        "Small or medium-sized business",
+        "Clear business plan with financial projections"
+      ]
+    },
+    {
+      "id": "example-yorkshire-loan",
+      "type": "loan",
+      "name": "Example Yorkshire Business Loan",
+      "provider": "Example Regional Fund",
+      "summary": "Loans for businesses in Yorkshire and the Humber to support growth, expansion and investment.",
+      "url": "https://www.example.com/yorkshire-loan",
+      "checkedOn": "2026-10-05",
+      "areas": {
+        "regions": [
+          "Yorkshire and The Humber"
+        ]
+      },
+      "amount": {
+        "min": 25000,
+        "max": 250000
+      },
+      "interestRate": "Set when you apply",
+      "repaymentTerm": "Agreed when you apply",
+      "fees": "Set when you apply",
+      "eligibility": [
+        "Pay business rates in Yorkshire and the Humber, or plan to move there",
+        "Small or medium-sized business"
+      ]
+    },
+    {
+      "id": "example-innovation-loan",
+      "type": "loan",
+      "name": "Example Innovation Loan",
+      "provider": "Example Innovation Agency",
+      "summary": "Loans for late-stage research and development projects with a clear route to market.",
+      "url": "https://www.example.com/innovation-loan",
+      "checkedOn": "2026-09-09",
+      "amount": {
+        "min": 100000,
+        "max": 2000000
+      },
+      "purposes": [
+        "research-innovation",
+        "new-product",
+        "digital-ai"
+      ],
+      "interestRate": "7.4% during the project",
+      "repaymentTerm": "Up to 7 years",
+      "fees": "No arrangement fee",
+      "eligibility": [
+        "Small or medium-sized business",
+        "Innovative project close to market"
+      ]
+    },
+    {
+      "id": "example-manchester-energy-grant",
+      "type": "grant",
+      "name": "Example Manchester Energy Grant",
+      "provider": "Example City Council",
+      "summary": "Grants for Manchester businesses to cut energy costs, for example with insulation, heat pumps or solar panels.",
+      "url": "https://www.example.com/manchester-energy-grant",
+      "checkedOn": "2026-10-01",
+      "areas": {
+        "localAuthorities": [
+          "E08000003"
+        ]
+      },
+      "amount": {
+        "min": 1000,
+        "max": 20000
+      },
+      "purposes": [
+        "energy",
+        "equipment"
+      ],
+      "matchFundingRequired": true,
+      "contribution": "Up to 50% of project costs",
+      "decisionTime": "Within 6 weeks",
+      "closesOn": "2027-03-31",
+      "eligibility": [
+        "Business premises in Manchester",
+        "Fewer than 250 employees"
+      ]
+    },
+    {
+      "id": "example-leeds-premises-grant",
+      "type": "grant",
+      "name": "Example Leeds Premises Grant",
+      "provider": "Example City Council",
+      "summary": "Grants for businesses moving into or improving premises in Leeds.",
+      "url": "https://www.example.com/leeds-premises-grant",
+      "checkedOn": "2026-10-01",
+      "areas": {
+        "localAuthorities": [
+          "E08000035"
+        ]
+      },
+      "amount": {
+        "min": 5000,
+        "max": 50000
+      },
+      "purposes": [
+        "premises"
+      ],
+      "matchFundingRequired": true,
+      "contribution": "Up to 40% of project costs",
+      "decisionTime": "Within 8 weeks",
+      "eligibility": [
+        "Premises in Leeds",
+        "Small or medium-sized business"
+      ]
+    },
+    {
+      "id": "example-hiring-grant",
+      "type": "grant",
+      "name": "Example Youth Hiring Grant",
+      "provider": "Example Government Department",
+      "summary": "Employers can get funding when they hire eligible young people aged 18 to 24.",
+      "url": "https://www.example.com/youth-hiring-grant",
+      "checkedOn": "2026-09-11",
+      "areas": {
+        "countries": [
+          "England",
+          "Scotland",
+          "Wales"
+        ]
+      },
+      "amount": {
+        "max": 3000
+      },
+      "purposes": [
+        "hire-staff"
+      ],
+      "matchFundingRequired": false,
+      "contribution": "£3,000 for each eligible person hired",
+      "decisionTime": "Within 10 working days",
+      "eligibility": [
+        "Operating in Great Britain",
+        "Hiring someone aged 18 to 24 who is getting Universal Credit"
+      ]
+    },
+    {
+      "id": "example-closed-grant",
+      "type": "grant",
+      "name": "Example Closed Grant",
+      "provider": "Example Government Department",
+      "summary": "A grant that has closed, which should not be shown.",
+      "url": "https://www.example.com/closed-grant",
+      "checkedOn": "2026-01-10",
+      "closesOn": "2026-06-30",
+      "eligibility": [
+        "Any UK business"
+      ]
+    },
+    {
+      "id": "example-growth-equity",
+      "type": "equity",
+      "name": "Example Growth Equity Fund",
+      "provider": "Example Venture Partners",
+      "summary": "Equity investment for ambitious businesses with high growth potential.",
+      "url": "https://www.example.com/growth-equity",
+      "checkedOn": "2026-09-13",
+      "amount": {
+        "min": 200000,
+        "max": 750000
+      },
+      "investmentType": "Growth capital",
+      "eligibility": [
+        "High growth potential",
+        "Scalable business model"
+      ]
+    },
+    {
+      "id": "example-north-west-equity",
+      "type": "equity",
+      "name": "Example North West Equity Fund",
+      "provider": "Example Regional Fund",
+      "summary": "Early-stage equity investment for businesses in the North West.",
+      "url": "https://www.example.com/north-west-equity",
+      "checkedOn": "2026-09-13",
+      "areas": {
+        "regions": [
+          "North West"
+        ]
+      },
+      "amount": {
+        "min": 50000,
+        "max": 2000000
+      },
+      "investmentType": "Seed and early-stage capital",
+      "eligibility": [
+        "Based in the North West",
+        "Seeking equity investment"
+      ]
+    }
+  ]
+}
