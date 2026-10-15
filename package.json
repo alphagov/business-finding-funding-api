@@ -9,7 +9,10 @@
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
     "typecheck": "tsc",
-    "test": "node --import tsx --test \"test/**/*.test.ts\""
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "release": "node dist/migrate.js && node dist/load.js",
+    "db:start": "docker compose up -d --wait",
+    "db:update": "tsx src/migrate.ts && tsx src/load.ts"
   },
   "engines": {
     "node": "24.x"
@@ -20,11 +23,13 @@
   },
   "license": "MIT",
   "dependencies": {
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^24.19.1",
+    "@types/pg": "^8.23.1",
     "ajv": "8.20.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"

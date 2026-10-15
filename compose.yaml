@@ -1,0 +1,23 @@
+# A Postgres database for running the API and its tests locally:
+#
+#   docker compose up -d --wait
+#
+# It uses the same major version of Postgres as Heroku.
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: funding
+      POSTGRES_PASSWORD: funding
+      POSTGRES_DB: funding
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "funding"]
+      interval: 2s
+      retries: 15
+
+volumes:
+  postgres:

@@ -1,6 +1,7 @@
 import express, { type Express, type NextFunction, type Request, type Response } from 'express'
 import type { Config } from './config'
-import { TYPES, type FundingData, type FundingType, type Scheme } from './schemes'
+import { TYPES, type FundingType } from './schemes'
+import type { SchemeStore } from './store'
 import { openApi } from './openapi'
 
 // The funding data API: a read-only JSON API over the funding schemes, with
@@ -69,14 +70,8 @@ function values (value: unknown): string[] {
   return (Array.isArray(value) ? value : [value]).filter((item): item is string => typeof item === 'string' && item !== '')
 }
 
-// True if the scheme is open to all (nothing listed), or lists any of the values.
-function matchesAny (allowed: string[] | undefined, wanted: string[]): boolean {
-  return wanted.length === 0 || !allowed?.length || allowed.some((value) => wanted.includes(value))
-}
-
-export function createApiApp (config: Config, funding: FundingData): Express {
+export function createApiApp (config: Config, store: SchemeStore): Express {
   const app = express()
-  const byId = new Map<string, Scheme>(funding.schemes.map((scheme) => [scheme.id, scheme]))
 
   app.disable('x-powered-by')
   app.set('query parser', 'simple')
@@ -106,8 +101,15 @@ export function createApiApp (config: Config, funding: FundingData): Express {
     res.type('text/plain').send('User-agent: *\nDisallow: /\n')
   })
 
-  app.get('/health', (req, res) => {
-    res.json({ status: 'ok' })
+  // Also checks the database, so a deploy fails if the API cannot reach it.
+  app.get('/health', async (req, res) => {
+    try {
+      await store.check()
+      res.json({ status: 'ok' })
+    } catch (err) {
+      console.error('Health check failed, because the database could not be reached:', (err as Error).message)
+      res.status(503).json({ status: 'error' })
+    }
   })
 
   app.get('/', (req, res) => {
@@ -126,7 +128,7 @@ export function createApiApp (config: Config, funding: FundingData): Express {
     res.type('js').send(DOCS_SCRIPT)
   })
 
-  app.get('/v1/schemes', (req, res) => {
+  app.get('/v1/schemes', async (req, res) => {
     const unknown = Object.keys(req.query).filter((name) => !FILTERS.includes(name))
     if (unknown.length) {
       return problem(res, 400, 'Unknown filter', `Filter by ${FILTERS.join(', ')}. Not recognised: ${unknown.join(', ')}`)
@@ -138,19 +140,17 @@ export function createApiApp (config: Config, funding: FundingData): Express {
       return problem(res, 400, 'Invalid type', `type must be one of ${TYPES.join(', ')}. Not recognised: ${badTypes.join(', ')}`)
     }
 
-    const sectors = values(req.query.sector)
-    const purposes = values(req.query.purpose)
-    const schemes = funding.schemes.filter((scheme) =>
-      (types.length === 0 || types.includes(scheme.type)) &&
-      matchesAny(scheme.sectors, sectors) &&
-      matchesAny(scheme.purposes, purposes)
-    )
+    const { example, schemes } = await store.list({
+      types: types as FundingType[],
+      sectors: values(req.query.sector),
+      purposes: values(req.query.purpose)
+    })
 
-    res.set('Cache-Control', CACHE_CONTROL).json({ example: funding.example, count: schemes.length, schemes })
+    res.set('Cache-Control', CACHE_CONTROL).json({ example, count: schemes.length, schemes })
   })
 
-  app.get('/v1/schemes/:id', (req, res) => {
-    const scheme = byId.get(String(req.params.id))
+  app.get('/v1/schemes/:id', async (req, res) => {
+    const scheme = await store.get(String(req.params.id))
     if (!scheme) return problem(res, 404, 'Scheme not found', `There is no scheme with the identifier ${String(req.params.id)}`)
     res.set('Cache-Control', CACHE_CONTROL).json(scheme)
   })

@@ -1,9 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-// A funding scheme a business could apply for. Schemes are kept in a JSON
-// file and checked when the API starts, so a mistake in the data stops the
-// API starting instead of publishing something wrong.
+// A funding scheme a business could apply for, in the format the API
+// publishes. The schemes are kept in a JSON file, which is checked before
+// it is loaded into the database (see src/load.ts), so a mistake in the
+// data stops the release instead of publishing something wrong.
 
 export type FundingType = 'loan' | 'grant' | 'equity'
 

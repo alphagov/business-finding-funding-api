@@ -1,15 +1,18 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
-import { startApi, type TestServer } from './helpers'
+import { startApi, testDatabase, type TestDatabase, type TestServer } from './helpers'
 
+let db: TestDatabase
 let server: TestServer
 
 before(async () => {
-  server = await startApi({ production: true })
+  db = await testDatabase()
+  server = await startApi(db.pool, { production: true })
 })
 
-after(() => {
+after(async () => {
   server.close()
+  await db.close()
 })
 
 test('plain HTTP requests are redirected to HTTPS', async () => {

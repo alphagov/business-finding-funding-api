@@ -4,7 +4,7 @@ A read-only JSON API over the funding schemes that UK businesses can apply for: 
 
 It is a proof of concept. The aim is for [Find funding for your business](https://github.com/alphagov/business-finding-funding), other GOV.UK Business services and AI assistants to read one source of funding data, rather than each keeping their own copy. See Jira [FF-89](https://gov-uk.atlassian.net/browse/FF-89).
 
-It is written in [TypeScript](https://www.typescriptlang.org/) and built with [Express](https://expressjs.com/). It runs on Heroku.
+It is written in [TypeScript](https://www.typescriptlang.org/) and built with [Express](https://expressjs.com/). It reads the schemes from a [Postgres](https://www.postgresql.org/) database, and runs on Heroku.
 
 The funding schemes are made-up examples until the real data is ready. See [Funding data](#funding-data).
 
@@ -17,10 +17,10 @@ The funding schemes are made-up examples until the real data is ready. See [Fund
 | `/openapi.json` | The OpenAPI 3.1 specification |
 | `/docs` | Documentation, using Swagger UI |
 | `/` | Redirects to `/docs` |
-| `/health` | Health check that returns `{"status":"ok"}` |
+| `/health` | Health check that returns `{"status":"ok"}`, or `{"status":"error"}` with status 503 if the database cannot be reached |
 | `/robots.txt` | Stops search engines crawling the API |
 
-- The data is public, so the API needs no password or API key, and any website can read it. There is no way to change data through the API: changes are made to the data file by pull request.
+- The data is public, so the API needs no password or API key, and any website can read it. There is no way to change data through the API: changes are made to the data file by pull request, and loaded into the database when the API is deployed.
 - Errors use the [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem format. Filters that are not recognised are errors, not ignored.
 - Responses can be cached for 5 minutes.
 - In production, plain HTTP requests are redirected to HTTPS.
@@ -34,15 +34,21 @@ The funding schemes are made-up examples until the real data is ready. See [Fund
 | `src/app.ts` | Creates the Express application: the API routes, documentation and security headers |
 | `src/server.ts` | Starts the application on a port. The only file tied to running as a long-lived server |
 | `src/openapi.ts` | The OpenAPI specification, including the published scheme format |
-| `src/schemes.ts` | The format of the funding data, and the checks run on it when the API starts |
+| `src/schemes.ts` | The format of the funding data file, and the checks run on it |
+| `src/db.ts` | Connects to the database |
+| `src/store.ts` | Reads the schemes from the database, in the format the API publishes |
+| `src/migrate.ts` | Brings the database up to date by running the files in `migrations/` |
+| `src/load.ts` | Loads the data file into the database |
+| `migrations/` | The SQL that creates the database tables and fills the fixed lists |
 | `data/funding-schemes.json` | The funding schemes |
+| `compose.yaml` | A local database for running the API and its tests |
 | `test/` | Tests, written in TypeScript |
 
 The API keeps nothing on local disk between requests and takes all its settings from environment variables, so it can move from Heroku to another platform by replacing `src/server.ts` rather than rewriting the app.
 
 ## Funding data
 
-The funding schemes are in `data/funding-schemes.json`. While `example` is `true` in that file, the API says so in every list of schemes, and services using it should say the schemes are not real.
+For now, the master copy of the funding schemes is `data/funding-schemes.json`. Each deploy loads it into the database, so the database matches the file: schemes are added or updated, and schemes no longer in the file are removed. While `example` is `true` in that file, the API says so in every list of schemes, and services using it should say the schemes are not real.
 
 Each scheme has:
 
@@ -63,7 +69,37 @@ Each scheme has:
 | `contribution`, `decisionTime` | No | For grants |
 | `investmentType` | No | For equity |
 
-The API checks the file when it starts and will not start if anything is wrong. `npm test` checks it too, and checks the file and every response against the scheme format in the specification, so the data, the API and the specification cannot drift apart.
+The file is checked before it is loaded, and the database checks every value again as it is saved. The whole file is loaded in one transaction, so if anything is wrong nothing changes and the deploy stops. `npm test` checks the file and every response against the scheme format in the specification, and checks that the API publishes every scheme exactly as it is in the file, so the data, the database, the API and the specification cannot drift apart.
+
+## Database
+
+The database is designed to hold everything in TPX's One Platform schema workbook (version 1.3), as well as the data in `data/funding-schemes.json`. The aim is to load the workbook's schemes into it next.
+
+| Table | What it holds |
+| ----- | ------------- |
+| `schemes` | What every scheme has, whatever its type: name, provider, summary, who can apply, web addresses, status and replacement scheme, amounts, match funding, closing date, how soon the money comes, when the details were checked and by whom, and when they must next be checked |
+| `loan_details`, `grant_details`, `equity_details` | Details for each type of funding, for example interest rates for loans. Each type has its own table, so a new type, such as business advice, can be added without changing the `schemes` table |
+| `scheme_sectors`, `scheme_purposes`, `scheme_areas`, `scheme_business_stages`, `scheme_legal_structures` | The lists on each scheme. A list is left empty when the scheme is open to all |
+| `scheme_eligibility` | Who can apply, as short statements, in order |
+| `funding_types`, `scheme_statuses`, `source_types`, `support_speeds`, `spend_types`, `sectors`, `purposes`, `business_stages`, `legal_structures` | The fixed lists of values. Sectors and purposes are the same as Find funding's questions. The others come from the One Platform data dictionary |
+| `areas` | Countries, English regions and all 361 local authorities, with their ONS codes, from the ONS Open Geography Portal |
+| `schema_migrations` | Which files in `migrations/` have been run |
+
+The database enforces these rules, however data is added:
+
+- values that come from a fixed list, such as a sector or a local authority, must be on the list
+- details for one type of funding cannot be added to a scheme of another type, for example an interest rate on a grant
+- identifiers use lower case letters and numbers joined by hyphens or underscores, so both the current identifiers and TPX's can be held
+- web addresses start with `https://`, the minimum amount is no more than the maximum, percentages are between 0 and 100, and the review date is not before the checked date
+- removing a scheme removes its details and lists
+
+These rules would have caught most of the problems found in the TPX files, such as sectors and goals that are not on the lists, and the old area code for Durham County Council.
+
+The API does not publish everything the database can hold yet, for example the status, who can apply and business stages. These will be added to the API when the workbook's schemes are loaded.
+
+### Changing the database
+
+To change the tables or a fixed list, add a new numbered SQL file to `migrations/`, for example `004-add-business-advice.sql`. Never change a file that has been merged. Each file runs once, in a transaction, when the API is deployed. Heroku does not undo a migration when it rolls back a release, so a migration must still work with the code that was live before it: add tables and columns rather than renaming or removing them.
 
 ## Swagger UI
 
@@ -80,18 +116,28 @@ curl -s https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.33.0/swagger-ui-bundle.js
 | Environment variable | Purpose |
 | -------------------- | ------- |
 | `PORT` | The port to listen on. Heroku sets it. Locally it is 3001, so the API can run alongside Find funding on port 3000 |
-| `NODE_ENV` | `production` turns on the HTTPS redirect. Heroku sets it to `production` unless it is set under **Settings > Config Vars** |
+| `NODE_ENV` | `production` turns on the HTTPS redirect and an encrypted database connection. Heroku sets it to `production` unless it is set under **Settings > Config Vars** |
+| `DATABASE_URL` | The database. Heroku Postgres sets it. Locally it is the database in `compose.yaml` |
+| `TEST_DATABASE_URL` | The database the tests use. It is `funding_test` in the database in `compose.yaml` unless this is set. The tests refuse to use a database that is not on the same computer, so they cannot change a real one |
 
 ## Run it locally
 
-Requires Node.js 24. If you use `nvm` or `fnm`, run `nvm use` or `fnm use` in this folder to pick it up from `.nvmrc`.
+Requires Node.js 24 and Docker. If you use `nvm` or `fnm`, run `nvm use` or `fnm use` in this folder to pick it up from `.nvmrc`.
 
 ```sh
 npm install
+npm run db:start
+npm run db:update
 npm run dev
 ```
 
-Then go to http://localhost:3001/docs. `npm run dev` runs the TypeScript directly and restarts when you save a file.
+Then go to http://localhost:3001/docs.
+
+- `npm run db:start` starts a local Postgres database in Docker, using `compose.yaml`. It keeps its data when it is stopped.
+- `npm run db:update` runs any new migrations, then loads `data/funding-schemes.json`. Run it again after changing either.
+- `npm run dev` runs the TypeScript directly and restarts when you save a file.
+
+To stop the database, run `docker compose stop`. To delete it and start again, run `docker compose down --volumes`.
 
 To have Find funding read its schemes from the API, run this in the Find funding folder at the same time:
 
@@ -112,9 +158,11 @@ npm start
 | ------- | ------------ |
 | `npm run typecheck` | Checks the TypeScript types in `src/` and `test/` |
 | `npm run build` | Compiles `src/` into JavaScript in `dist/` |
-| `npm test` | Runs the tests |
+| `npm test` | Runs the tests. They need the local database, so run `npm run db:start` first |
 
-GitHub Actions runs all three on every pull request and on each change to `main` (see `.github/workflows/test.yml`). The check is called `test`, and must pass before a pull request can be merged.
+Each test file uses its own empty copy of the tables, which it removes when it finishes, so the tests never change the database you use with `npm run dev`.
+
+GitHub Actions runs all three, with its own database, on every pull request and on each change to `main` (see `.github/workflows/test.yml`). The check is called `test`, and must pass before a pull request can be merged.
 
 ## Logs
 
@@ -129,13 +177,15 @@ heroku logs --tail -a govuk-business-funding-api
 Heroku:
 
 - installs all dependencies, runs `npm run build` to compile the TypeScript, then removes the development-only packages
+- runs the release phase in `Procfile` before the new release goes live: `npm run release` runs any new migrations, then loads `data/funding-schemes.json` into the database. If it fails, the live release is not changed
 - uses `Procfile` to start the web process (`npm start`, which runs `node dist/server.js`)
 - uses `engines.node` in `package.json` to choose the Node.js version
 - sets the `PORT` environment variable automatically
+- sets `DATABASE_URL` to the app's Heroku Postgres database
 
 The compiled `dist/` folder is not committed to the repository.
 
-The API is deployed to the `govuk-business-funding-api` app in the `government-digital-service` team, at https://govuk-business-funding-api-701ff32e2a83.herokuapp.com/docs.
+The API is deployed to the `govuk-business-funding-api` app in the `government-digital-service` team, at https://govuk-business-funding-api-701ff32e2a83.herokuapp.com/docs. Its database is a Heroku Postgres Essential 0 database (Postgres 18, up to 1 GB). The Essential plans only have one database user, so the API reads the data with the same user that the release phase uses to change it. A Standard plan would let the API use a user that can only read.
 
 ### How deployment works
 
@@ -143,10 +193,11 @@ Every change merged to `main` is deployed automatically by the `deploy` job in `
 
 1. packages the commit and uploads it to Heroku
 2. builds it, showing Heroku's build log in the GitHub Actions log
-3. waits for the new release to start, then checks it is still running after Heroku's 60 second start-up limit
-4. requests `/health` and checks it returns `{"status":"ok"}`
+3. waits for the release phase to update the database, showing its log
+4. waits for the new release to start, then checks it is still running after Heroku's 60 second start-up limit
+5. requests `/health`, which also checks the database, and checks it returns `{"status":"ok"}`
 
-If the build fails, the job fails and the previous release keeps running. If the new release does not start, crashes, or does not answer `/health`, the job rolls the app back to the release that was live before, then fails. If the rollback itself fails, the job log says so and shows the command to run by hand: `heroku rollback -a govuk-business-funding-api`.
+If the build or the release phase fails, the job fails and the previous release keeps running. If the new release does not start, crashes, or does not answer `/health`, the job rolls the app back to the release that was live before, then fails. If the rollback itself fails, the job log says so and shows the command to run by hand: `heroku rollback -a govuk-business-funding-api`.
 
 To redeploy without a code change, run the **Test and deploy** workflow by hand on `main` from the Actions tab.
 
