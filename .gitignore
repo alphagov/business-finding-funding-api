@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# FF-121 spike: copies of what the sources said, kept out of this public repository
+spike/ff-121/output/
