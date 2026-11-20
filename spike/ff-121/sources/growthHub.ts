@@ -111,6 +111,7 @@ export function growthHubEntry (card: Card, tags: string[], page: SchemePage | n
     applyPage: null,
     updated: page?.updated ?? null,
     fields: {
+      summary: page?.summary ?? (card.summary === '' ? null : card.summary),
       list_labels: card.labels,
       business_support_tags: tags,
       is_scheme: page?.isScheme ?? null,
@@ -123,15 +124,13 @@ export function growthHubEntry (card: Card, tags: string[], page: SchemePage | n
 }
 
 export async function collectGrowthHub (get: Get, readOn: string): Promise<Omit<Collection, 'requests'>> {
-  // The resource list's later pages (page 14 of 21 on 20 November 2026) are
-  // careers and schools resources with no page of their own, so reading
-  // stops at the first list page with no resource pages on it.
+  // Every page of the resource list is read. Its later pages (from page 13
+  // or 14 of 21 on 20 November 2026, as the order changes) are careers and
+  // schools resources with no page of their own, which are passed over.
   const cards = new Map<string, Card>()
   for (let page = 1, last = 1; page <= last; page += 1) {
     const html = await getText(get, `${BASE}/resource?page=${page}`)
-    const found = cardsOf(html, 'resource-list__item')
-    if (found.length === 0) break
-    for (const card of found) cards.set(card.slug, card)
+    for (const card of cardsOf(html, 'resource-list__item')) cards.set(card.slug, card)
     last = Math.max(last, lastPage(html))
   }
 
@@ -154,7 +153,14 @@ export async function collectGrowthHub (get: Get, readOn: string): Promise<Omit<
     try {
       const html = await getText(get, `${BASE}/resource/${card.slug}`)
       const page = schemePage(html)
-      if (page.name === null) problems.push(`${card.slug}: the page has no name. It may have changed shape.`)
+      if (page.name === null) {
+        // A removed entry's address shows the resource list instead.
+        problems.push(html.includes('resource-list__item')
+          ? `${card.slug}: the page shows the resource list instead, so the entry seems to have been removed.`
+          : `${card.slug}: the page has no name. It may have changed shape.`)
+        entries.push(growthHubEntry(card, cardTags, null, null))
+        continue
+      }
       entries.push(growthHubEntry(card, cardTags, page, html))
     } catch (error) {
       problems.push(`${card.slug}: ${(error as Error).message}`)

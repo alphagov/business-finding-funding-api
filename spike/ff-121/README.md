@@ -29,7 +29,14 @@ The sources are `govuk-finder`, `find-a-grant`, `north-east-growth-hub` and `tee
 - A page that times out or gives a server error is tried once more, 5 seconds later.
 - A page that still cannot be read, or that has lost the parts the spike reads, is listed under `problems` in its source's file, and the run carries on.
 - Directory pages name contact people, with their email addresses and telephone numbers. The spike does not keep these.
-- The Growth Hub's resource list ends with careers and schools resources that have no page of their own (pages 14 to 21 on 20 November 2026). Reading stops at the first list page without any resource pages.
+- The Growth Hub's resource list ends with careers and schools resources that have no page of their own (from page 13 or 14 of 21 on 20 November 2026). Every list page is read, and these are passed over.
+- Some Growth Hub entries still on the list show the resource list instead of their own page, so they seem to have been removed. They are listed under `problems`.
+
+## Mapping
+
+`npm run spike:map` maps the latest collection to the funding data API's fields and makes no requests. For each entry and field it records whether the value is **coded** (from a coded value or labelled field, mapped by the draft tables in `mapping.ts`), only possibly in the **text**, or not given at all (**none**). It writes `mapped/<source>.json` and `coverage.md` in the collection's folder.
+
+The tables in `mapping.ts` are draft decisions, for someone who knows the content to check. A value with no mapping is reported, never guessed.
 
 ## What it saves
 
