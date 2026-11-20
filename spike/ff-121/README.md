@@ -32,6 +32,15 @@ The sources are `govuk-finder`, `find-a-grant`, `north-east-growth-hub` and `tee
 - The Growth Hub's resource list ends with careers and schools resources that have no page of their own (from page 13 or 14 of 21 on 20 November 2026). Every list page is read, and these are passed over.
 - Some Growth Hub entries still on the list show the resource list instead of their own page, so they seem to have been removed. They are listed under `problems`.
 
+## What it saves
+
+Files go to `spike/ff-121/output/<date>/`, which git ignores. This repository is public, and the files are working copies for the spike.
+
+- `<source>.json`: every entry, with the source's own name, page, provider, links, last updated date, fields and text, and a fingerprint of the page it came from.
+- `raw/govuk-finder/` and `raw/find-a-grant/`: the data replies as they came, without email addresses, so the results can be checked.
+
+Entries the Growth Hub lists but that are not about finance are kept from the list only, with `read` set to `listing only`.
+
 ## Mapping
 
 `npm run spike:map` maps the latest collection to the funding data API's fields and makes no requests. For each entry and field it records whether the value is **coded** (from a coded value or labelled field, mapped by the draft tables in `mapping.ts`), only possibly in the **text**, or not given at all (**none**). It writes `mapped/<source>.json` and `coverage.md` in the collection's folder.
@@ -50,11 +59,12 @@ The team's list names the people who checked each scheme, so it must stay outsid
 
 A scheme is matched by address first, then by name. Home pages, and addresses that more than one scheme on a list shares, such as a directory's own list page, are not matched on, as they do not identify a scheme. Names match when they share a word that is not generic, such as a place, "fund" or "grant", and have most of their words in common. The closest name is taken. Matches by name are listed in the output for a person to check.
 
-## What it saves
+## Quality checklist
 
-Files go to `spike/ff-121/output/<date>/`, which git ignores. This repository is public, and the files are working copies for the spike.
+```sh
+npm run spike:checklist
+```
 
-- `<source>.json`: every entry, with the source's own name, page, provider, links, last updated date, fields and text, and a fingerprint of the page it came from.
-- `raw/govuk-finder/` and `raw/find-a-grant/`: the data replies as they came, without email addresses, so the results can be checked.
+This writes `quality-checklist-<date>.csv` in the collection's folder, for a person to check what the sources say against the running bodies' own pages. The spike uses no AI, so a person does this check rather than a model.
 
-Entries the Growth Hub lists but that are not about finance are kept from the list only, with `read` set to `listing only`.
+It takes 10 entries from each source, grants first, picked by a fixed shuffle so the sample is the same each time and not chosen by hand. For each entry it asks whether the running body's page is the scheme's own and works, and whether the scheme is still running. It then has a row for each value the source gives, such as the amount, closing date, areas, stages or sectors. The checker records each result as right, wrong, partly right, not on the page, or page not found.
