@@ -18,6 +18,7 @@
     "tpx:extract": "tsx src/tpx/extract.ts",
     "spike:collect": "tsx spike/ff-121/collect.ts",
     "spike:map": "tsx spike/ff-121/report.ts",
+    "spike:compare": "tsx spike/ff-121/compare.ts",
     "spike:test": "node --import tsx --test \"spike/**/*.test.ts\""
   },
   "engines": {
