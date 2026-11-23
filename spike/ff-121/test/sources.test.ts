@@ -162,6 +162,7 @@ test('Growth Hub: list cards, last page and labelled fields, without contact det
   assert.equal(page.status, 'Open')
   assert.equal(page.updated, '21 March 2025')
   assert.equal(page.isScheme, true)
+  assert.equal(page.text, 'Apply by email to [email address removed].', 'the text has none of the tag\'s markup')
   assert.deepEqual(page.fields, { area: ['Gateshead', 'Sunderland'], categories: ['Finance & funding', 'Grant'], grant_size: '£5,000 – £35,000', deadline: 'Rolling' })
 
   const entry = growthHubEntry(cards[0], ['Grant'], page, SCHEME_PAGE)

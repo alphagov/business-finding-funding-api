@@ -83,7 +83,10 @@ export function schemePage (html: string): SchemePage {
   }
 
   const provided = /Provided by:\s*(?:<a href="([^"]*)"[^>]*>([\s\S]*?)<\/a>|([^<]+))/.exec(html)
-  const content = html.indexOf('resource-view__content-container')
+  // The description starts at the tag that holds it, so none of the tag's
+  // own markup is read as text.
+  const contentClass = html.indexOf('resource-view__content-container')
+  const content = contentClass < 0 ? -1 : html.lastIndexOf('<', contentClass)
   const end = html.indexOf('<footer', content)
 
   return {
