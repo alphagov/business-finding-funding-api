@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 import type { Entry } from '../entry'
-import { addressKey, matchScheme, nameScore, publishedForNorthEast, readTeamList, sameName, sharedAddresses, type Scheme } from '../compare'
+import { addressKey, matchScheme, nameScore, publishedForNorthEast, readDiscovered, readTeamList, sameName, sharedAddresses, withDiscovery, type Scheme } from '../compare'
 
 // Made-up schemes and entries, in the shape of the team's list and the
 // collected sources.
@@ -64,6 +66,34 @@ test('the API\'s schemes a North East business could use', () => {
   ]
   const kept = publishedForNorthEast(rows)
   assert.deepEqual(kept.map((one) => [one.id, one.grant]), [['a', false], ['b', true], ['c', true]])
+})
+
+test('TPX\'s candidates: read from its discovery file and counted with the sources', () => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'ff-121-'))
+  const file = path.join(folder, 'candidates.json')
+  fs.writeFileSync(file, JSON.stringify({
+    candidates: [
+      { id: 'blind:shop', name: 'Shop Front Scheme', running_body: 'Made-up Council', kind: 'grant', area: 'Gateshead', addresses: ['https://council.example.org/shop'], best: { address: 'https://council.example.org/shop', fetch_status: 200 } },
+      { id: 'blind:export', name: 'Export Credit Guarantee', kind: 'guarantee', addresses: [], best: { address: 'https://export.example.org/credit', fetch_status: 404 } }
+    ]
+  }))
+  const discovered = readDiscovered(file)
+  assert.deepEqual(discovered.map((one) => [one.id, one.link, one.worked]), [
+    ['blind:shop', 'https://council.example.org/shop', true],
+    ['blind:export', 'https://export.example.org/credit', false]
+  ])
+  assert.throws(() => readDiscovered(path.join(__dirname, '..', '..', '..', 'package.json')), /no candidates/)
+
+  const team = [
+    scheme('Shop Front Scheme', 'https://council.example.org/shop'),
+    scheme('Export Credit Guarantee', '', { grant: false }),
+    scheme('Mentoring Programme', '', { grant: false })
+  ]
+  const entries = [entry('north-east-growth-hub', 'shop', 'Shop Front Scheme', 'https://growthhub.example.org/resource/shop')]
+  const lines = withDiscovery(team, discovered, entries)
+  // Schemes, four sources, TPX's search, either, both, sources only, search only, neither.
+  assert.ok(lines.includes('| All schemes | 3 | 1 | 2 | 2 | 1 | 0 | 1 | 1 |'))
+  assert.ok(lines.includes('| All | 2 | 1 (50%) | 1 (50%) |'))
 })
 
 test('the team\'s list is refused when it is inside the repository', async () => {

@@ -55,6 +55,8 @@ npm run spike:compare -- --list "path/to/NORTH EAST ENGLAND GRANTS AND FUNDING.x
 
 This compares the latest collection with the team's list of North East funding (September 2026) and with the schemes this API publishes now. It writes `comparison.md` in the collection's folder and makes no requests.
 
+Add `--discovered path/to/data-blind/discovery/candidates.json` to compare with the 470 schemes TPX's AI search found in its blind run of 28 September, from the prototype's run data. This shows how many of TPX's candidates the sources have, and, for the team's list, which schemes the sources found, the search found, both or neither.
+
 The team's list names the people who checked each scheme, so it must stay outside this repository. The script refuses a path inside it and reads only the scheme's ID, name, category, provider, link, status and verification.
 
 A scheme is matched by address first, then by name. Home pages, and addresses that more than one scheme on a list shares, such as a directory's own list page, are not matched on, as they do not identify a scheme. Names match when they share a word that is not generic, such as a place, "fund" or "grant", and have most of their words in common. The closest name is taken. Matches by name are listed in the output for a person to check.

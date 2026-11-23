@@ -12,6 +12,10 @@ import { NORTH_EAST_COUNCILS } from './mapping'
 // funding data API publishes now they have.
 //
 //   npm run spike:compare -- --list "path/to/NORTH EAST ENGLAND GRANTS AND FUNDING.xlsx"
+//   npm run spike:compare -- --list "path/to/list.xlsx" --discovered path/to/data-blind/discovery/candidates.json
+//
+// With --discovered, it also compares the sources with the schemes TPX's AI
+// search found in its blind run, from the prototype's run data.
 //
 // The team's list names the people who checked each scheme, so it must be
 // kept outside this public repository: the script refuses a path inside it,
@@ -208,26 +212,75 @@ export function sharedAddresses (schemes: Scheme[]): Set<string> {
   return new Set([...seen].filter(([, count]) => count > 1).map(([key]) => key))
 }
 
-export function matchScheme (scheme: Scheme, entries: Entry[], shared: Set<string> = new Set()): Match[] {
+// Anything a scheme can be matched with: a source's entry or a candidate from
+// TPX's search.
+export interface Listed {
+  id: string
+  name: string
+  addresses: Array<string | null>
+}
+
+// The item for the same scheme: the first at the scheme's address, or else
+// the closest name, not the first, as a list may have a programme and its
+// parts.
+export function closest (scheme: Scheme, items: Listed[], shared: Set<string> = new Set()): { id: string, by: 'address' | 'name' } | null {
   const linked = addressKey(scheme.link)
   const key = linked !== null && shared.has(linked) ? null : linked
+  const byAddress = key === null ? undefined : items.find((item) => item.addresses.some((address) => addressKey(address) === key))
+  if (byAddress !== undefined) return { id: byAddress.id, by: 'address' }
+  const scored = items.map((item) => ({ item, score: nameScore(item.name, scheme.name) })).filter(({ score }) => score > 0)
+  const byName = scored.sort((a, b) => b.score - a.score)[0]?.item
+  return byName === undefined ? null : { id: byName.id, by: 'name' }
+}
+
+export function matchScheme (scheme: Scheme, entries: Entry[], shared: Set<string> = new Set()): Match[] {
   const matches: Match[] = []
   for (const source of SOURCES) {
-    const ofSource = entries.filter((entry) => entry.source === source)
-    const byAddress = key === null
-      ? undefined
-      : ofSource.find((entry) => [entry.page, entry.providerPage, entry.applyPage].some((address) => addressKey(address) === key))
-    if (byAddress !== undefined) {
-      matches.push({ source, entry: byAddress.id, by: 'address' })
-      continue
-    }
-    // The closest name, not the first, as a source may list a programme and
-    // its parts.
-    const scored = ofSource.map((entry) => ({ entry, score: nameScore(entry.name, scheme.name) })).filter(({ score }) => score > 0)
-    const byName = scored.sort((a, b) => b.score - a.score)[0]?.entry
-    if (byName !== undefined) matches.push({ source, entry: byName.id, by: 'name' })
+    const items = entries.filter((entry) => entry.source === source)
+      .map((entry) => ({ id: entry.id, name: entry.name, addresses: [entry.page, entry.providerPage, entry.applyPage] }))
+    const found = closest(scheme, items, shared)
+    if (found !== null) matches.push({ source, entry: found.id, by: found.by })
   }
   return matches
+}
+
+// A scheme TPX's AI search found (data-blind/discovery/candidates.json in
+// the prototype's run data), with whether its page worked when TPX checked.
+export interface Discovered extends Listed {
+  provider: string
+  kind: string
+  area: string
+  link: string
+  worked: boolean
+}
+
+interface Candidate {
+  id: string
+  name: string
+  running_body?: string
+  kind?: string
+  area?: string
+  addresses?: string[]
+  best?: { address?: string, fetch_status?: number | null }
+}
+
+export function readDiscovered (file: string): Discovered[] {
+  const data = JSON.parse(fs.readFileSync(file, 'utf8')) as { candidates?: Candidate[] }
+  if (!Array.isArray(data.candidates)) throw new Error(`${file} has no candidates. Give TPX's discovery/candidates.json.`)
+  return data.candidates.map((candidate) => ({
+    id: candidate.id,
+    name: candidate.name,
+    provider: candidate.running_body ?? '',
+    kind: candidate.kind ?? '',
+    area: candidate.area ?? '',
+    link: candidate.best?.address ?? candidate.addresses?.[0] ?? '',
+    addresses: candidate.addresses ?? [],
+    worked: candidate.best?.fetch_status === 200
+  }))
+}
+
+export function asScheme (found: Discovered): Scheme {
+  return { list: 'TPX search', id: found.id, name: found.name, category: found.kind, provider: found.provider, link: found.link, grant: found.kind === 'grant' }
 }
 
 function host (link: string): string {
@@ -256,7 +309,54 @@ function counted (items: string[]): string[] {
   return [...counts].sort((a, b) => b[1] - a[1]).map(([item, count]) => `${item} (${count})`)
 }
 
-export function comparison (date: string, team: Scheme[], published: Scheme[], entries: Entry[]): string {
+// How the four sources and TPX's search compare, for TPX's candidates and
+// for the team's list.
+export function withDiscovery (team: Scheme[], discovered: Discovered[], entries: Entry[]): string[] {
+  const teamShared = sharedAddresses(team)
+  const inSources = new Map(team.map((scheme) => [scheme, matchScheme(scheme, entries, teamShared).length > 0]))
+  const inSearch = new Map(team.map((scheme) => [scheme, closest(scheme, discovered, teamShared) !== null]))
+
+  const candidates = discovered.map(asScheme)
+  const candidateShared = sharedAddresses(candidates)
+  const candidateInSources = new Map(discovered.map((found, at) => [found, matchScheme(candidates[at], entries, candidateShared).length > 0]))
+
+  const candidateRow = (label: string, list: Discovered[]) => {
+    const worked = list.filter((found) => found.worked).length
+    const inAny = list.filter((found) => candidateInSources.get(found)).length
+    return `| ${label} | ${list.length} | ${worked} (${percent(worked, list.length)}) | ${inAny} (${percent(inAny, list.length)}) |`
+  }
+
+  const teamRow = (label: string, schemes: Scheme[]) => {
+    const count = (test: (scheme: Scheme) => boolean) => schemes.filter(test).length
+    const sources = (scheme: Scheme) => inSources.get(scheme) === true
+    const search = (scheme: Scheme) => inSearch.get(scheme) === true
+    return `| ${label} | ${schemes.length} | ${count(sources)} | ${count(search)} | ${count((one) => sources(one) || search(one))} | ${count((one) => sources(one) && search(one))} | ${count((one) => sources(one) && !search(one))} | ${count((one) => search(one) && !sources(one))} | ${count((one) => !sources(one) && !search(one))} |`
+  }
+
+  return [
+    '## TPX\'s AI search',
+    '',
+    `TPX's blind run of 28 September found ${discovered.length} candidate schemes, almost all through Gemini, as TPX's directory reader failed on most directories. "Working page" is whether the candidate's page gave a reply when TPX checked it.`,
+    '',
+    '| TPX\'s candidates | Candidates | Working page then | In any of the four sources |',
+    '| --- | --- | --- | --- |',
+    candidateRow('All', discovered),
+    candidateRow('Grants', discovered.filter((found) => found.kind === 'grant')),
+    '',
+    '## The team\'s list: the four sources and TPX\'s search together',
+    '',
+    'TPX reported that its search found about 95 of the team\'s 154 schemes.',
+    '',
+    '| Team\'s list | Schemes | Four sources | TPX\'s search | Either | Both | Sources only | Search only | Neither |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    teamRow('All schemes', team),
+    teamRow('Grants', team.filter((scheme) => scheme.grant)),
+    ...[...new Set(team.map((scheme) => scheme.list))].map((list) => teamRow(list, team.filter((scheme) => scheme.list === list))),
+    ''
+  ]
+}
+
+export function comparison (date: string, team: Scheme[], published: Scheme[], entries: Entry[], discovered: Discovered[] = []): string {
   const teamShared = sharedAddresses(team)
   const found = new Map(team.map((scheme) => [scheme, matchScheme(scheme, entries, teamShared)]))
   const publishedFound = new Map(published.map((scheme) => [scheme, matchScheme(scheme, entries, sharedAddresses(published))]))
@@ -331,6 +431,7 @@ export function comparison (date: string, team: Scheme[], published: Scheme[], e
     '| --- | --- |',
     ...published.map((scheme) => `| ${scheme.name} | ${publishedFound.get(scheme)!.map((match) => `${SHORT[match.source]} (${match.by})`).join(', ') || 'none'} |`),
     '',
+    ...(discovered.length > 0 ? withDiscovery(team, discovered, entries) : []),
     '## Matches by name, to check',
     '',
     '| Team ID | Team\'s name | Source | Source\'s name |',
@@ -363,8 +464,10 @@ async function main (): Promise<void> {
     .flatMap((source) => (JSON.parse(fs.readFileSync(path.join(folder, `${source}.json`), 'utf8')) as Collection).entries)
   const team = await readTeamList(list)
   const published = publishedForNorthEast((JSON.parse(fs.readFileSync(PUBLISHED, 'utf8')) as { rows: PublishedRow[] }).rows)
+  const searched = option('--discovered')
+  const discovered = searched === undefined ? [] : readDiscovered(searched)
 
-  const markdown = comparison(date, team, published, entries)
+  const markdown = comparison(date, team, published, entries, discovered)
   fs.writeFileSync(path.join(folder, 'comparison.md'), markdown)
   console.log(markdown)
 }
