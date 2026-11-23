@@ -142,17 +142,25 @@ export function checkRows (entries: Entry[], readOn: string): CheckRow[] {
   let check = 0
   for (const entry of entries) {
     const mapped = mapEntry(entry, readOn)
+    // Find a Grant gives no link to the running body's own page, only where
+    // to apply, which is usually its own application form behind a sign-in.
+    // The department that runs the grant writes the advert, so the advert is
+    // the page to check against.
+    const advertOnly = entry.source === 'find-a-grant'
     const base = {
       source: SOURCE_NAMES[entry.source],
       scheme: entry.name,
       sourcePage: entry.page,
-      runningBodyPage: entry.providerPage ?? entry.applyPage ?? 'None given: search for the scheme'
+      runningBodyPage: advertOnly
+        ? 'Application link only: use the advert on Find a Grant instead'
+        : entry.providerPage ?? entry.applyPage ?? 'None given: search for the scheme'
     }
     const add = (question: string, says: string) => rows.push({ check: ++check, ...base, question, sourceSays: says })
 
     // Every entry: whether the page it links to is the scheme's own, and
     // whether the scheme is still running.
-    add('The running body\'s page is the scheme\'s own page and works', base.runningBodyPage)
+    if (advertOnly) add('The advert on Find a Grant works and is about this scheme', entry.page)
+    else add('The running body\'s page is the scheme\'s own page and works', base.runningBodyPage)
     add('The scheme is still running', 'Listed on the source')
     for (const [field, question] of Object.entries(QUESTIONS) as Array<[Field, string]>) {
       if (mapped.fields[field].how !== 'coded') continue

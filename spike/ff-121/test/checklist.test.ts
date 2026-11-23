@@ -46,6 +46,12 @@ test('a row for each value the source gives, and a CSV Excel can open', () => {
   ])
   assert.equal(rows[0].runningBodyPage, 'https://fund.example.org/')
 
+  // Find a Grant links only to the application, so the advert is checked.
+  const [advert] = checkRows([entry('find-a-grant', 'grant', {}, { applyPage: 'https://apply.example.org/applications/1' })], '2026-11-20')
+  assert.equal(advert.runningBodyPage, 'Application link only: use the advert on Find a Grant instead')
+  assert.equal(advert.question, 'The advert on Find a Grant works and is about this scheme')
+  assert.equal(advert.sourceSays, 'https://source.example.org/grant')
+
   const csv = checklistCsv([{ ...rows[0], scheme: 'A "quoted", name' }])
   assert.ok(csv.startsWith('﻿Check,Source,Scheme'))
   assert.ok(csv.includes('"A ""quoted"", name"'))

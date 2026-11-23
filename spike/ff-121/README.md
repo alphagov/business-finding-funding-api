@@ -70,3 +70,5 @@ npm run spike:checklist
 This writes `quality-checklist-<date>.csv` in the collection's folder, for a person to check what the sources say against the running bodies' own pages. The spike uses no AI, so a person does this check rather than a model.
 
 It takes 10 entries from each source, grants first, picked by a fixed shuffle so the sample is the same each time and not chosen by hand. For each entry it asks whether the running body's page is the scheme's own and works, and whether the scheme is still running. It then has a row for each value the source gives, such as the amount, closing date, areas, stages or sectors. The checker records each result as right, wrong, partly right, not on the page, or page not found.
+
+Find a Grant gives no link to the running body's own page, only where to apply, which is usually its own application form behind a GOV.UK One Login sign-in. The department that runs the grant writes the advert on Find a Grant, so its entries are checked against the advert instead.
