@@ -15,7 +15,12 @@
     "db:update": "tsx src/migrate.ts && tsx src/tpx/import.ts",
     "tpx:import": "tsx src/tpx/import.ts",
     "db:examples": "tsx src/load.ts",
-    "tpx:extract": "tsx src/tpx/extract.ts"
+    "tpx:extract": "tsx src/tpx/extract.ts",
+    "spike:collect": "tsx spike/ff-121/collect.ts",
+    "spike:map": "tsx spike/ff-121/report.ts",
+    "spike:compare": "tsx spike/ff-121/compare.ts",
+    "spike:checklist": "tsx spike/ff-121/checklist.ts",
+    "spike:test": "node --import tsx --test \"spike/**/*.test.ts\""
   },
   "engines": {
     "node": "24.x"
