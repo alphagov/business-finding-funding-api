@@ -14,3 +14,13 @@ updates:
     directory: /
     schedule:
       interval: weekly
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # Keep the image on the same major version of Node.js as .nvmrc and
+      # engines.node in package.json. Upgrade them together.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]

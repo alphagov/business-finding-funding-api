@@ -1,0 +1,10 @@
+# Only the files the image is built from. Everything else stays out,
+# including .env files, local node_modules and the git history.
+*
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.build.json
+!src
+!migrations
+!data
