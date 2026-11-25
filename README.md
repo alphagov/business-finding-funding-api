@@ -1,8 +1,8 @@
 # Funding data API (business-finding-funding-api)
 
-A read-only JSON API over the funding schemes that UK businesses can apply for: loans, grants and equity investment. It is owned by the GOV.UK Business team (`@alphagov/gov-uk-business-team`).
+A read-only JSON API over the funding schemes that UK businesses can apply for: loans, grants and equity investment. It is owned by the GOV.UK Business team (code owners: `@govuk-business/govuk-business-tech-leads`).
 
-It is a proof of concept. The aim is for [Find funding for your business](https://github.com/alphagov/business-finding-funding), other GOV.UK Business services and AI assistants to read one source of funding data, rather than each keeping their own copy. See Jira [FF-89](https://gov-uk.atlassian.net/browse/FF-89).
+It is a proof of concept. The aim is for [Find funding for your business](https://github.com/govuk-business/business-finding-funding), other GOV.UK Business services and AI assistants to read one source of funding data, rather than each keeping their own copy. See Jira [FF-89](https://gov-uk.atlassian.net/browse/FF-89).
 
 It is written in [TypeScript](https://www.typescriptlang.org/) and built with [Express](https://expressjs.com/). It reads the schemes from a [Postgres](https://www.postgresql.org/) database, and runs on Heroku.
 
@@ -235,7 +235,7 @@ To redeploy without a code change, run the **Test and deploy** workflow by hand 
 
 This only needs doing once, by someone with access to the Heroku app:
 
-1. Create a Heroku API key for this repository only. In Heroku, go to **Account settings > Applications > Authorizations > Create authorization** and give it a description such as "alphagov/business-finding-funding-api deploys". Do not use your personal API key.
+1. Create a Heroku API key for this repository only. In Heroku, go to **Account settings > Applications > Authorizations > Create authorization** and give it a description such as "govuk-business/business-finding-funding-api deploys". Do not use your personal API key.
 2. In this repository, go to **Settings > Environments > heroku** and add an environment secret called `HEROKU_API_KEY` containing the key from step 1. The `heroku` environment only allows deployments from `main`.
 
 To revoke deploy access, delete the authorisation in Heroku. To rotate the key, create a new authorisation, update the secret, then delete the old authorisation.
@@ -243,6 +243,8 @@ To revoke deploy access, delete the authorisation in Heroku. To rotate the key, 
 ## Repository settings
 
 - `main` is protected: changes go through a pull request, the `test` check must pass on the latest code, review comments must be resolved, and the branch cannot be force-pushed or deleted
+- the `govuk-business` organisation also requires every pull request to be approved by a code owner other than the person who last pushed to it, and commits on `main` to be signed
+- GitHub Actions are pinned to a full commit SHA, with the version in a comment, as the organisation requires
 - branches are deleted once their pull request is merged
 - Dependabot raises pull requests for security fixes, and weekly for npm and GitHub Actions updates (see `.github/dependabot.yml`)
 - secret scanning and push protection are on, and CodeQL scans the code
