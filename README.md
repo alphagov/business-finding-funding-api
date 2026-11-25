@@ -1,6 +1,6 @@
 # Funding data API (business-finding-funding-api)
 
-A read-only JSON API over the funding schemes that UK businesses can apply for: loans, grants and equity investment. It is owned by the GOV.UK Business team (code owners: `@govuk-business/govuk-business-tech-leads`).
+A read-only JSON API over the funding schemes that UK businesses can apply for: loans, grants and equity investment. It is owned by the GOV.UK Business team (code owners: `@govuk-business/govuk-business-finding-funding-dev`).
 
 It is a proof of concept. The aim is for [Find funding for your business](https://github.com/govuk-business/business-finding-funding), other GOV.UK Business services and AI assistants to read one source of funding data, rather than each keeping their own copy. See Jira [FF-89](https://gov-uk.atlassian.net/browse/FF-89).
 
