@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 
-# Both jobs use Ubuntu 26.04, the same version as Heroku's heroku-26 stack,
+# All jobs use Ubuntu 26.04, the same version as Heroku's heroku-26 stack,
 # rather than ubuntu-latest, so the version only changes when we change it.
 # Change it here when the Heroku stack changes.
 
@@ -46,6 +46,29 @@ jobs:
       - run: npm run build
 
       - run: npm test
+
+  # Builds the container image and checks it starts and passes its health
+  # check, using compose.yaml. See "Run it in Docker" in README.md.
+  docker:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+      GIT_REF: ${{ github.sha }}
+      GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build the image and start it
+        run: docker compose --profile app up --build --wait --wait-timeout 180
+
+      - name: Show the logs
+        if: failure()
+        run: docker compose --profile app logs
+
+      - name: Stop it
+        if: always()
+        run: docker compose --profile app down --volumes
 
   # Deploys main to Heroku once the tests pass. Run the workflow by hand
   # on main to redeploy without a code change.

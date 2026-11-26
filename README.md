@@ -182,6 +182,31 @@ npm run build
 npm start
 ```
 
+## Run it in Docker
+
+The `Dockerfile` builds the API as a container image, ready for the GOV.UK Business platform. To build it and run it with its database (requires Docker):
+
+```sh
+docker compose --profile app up --build
+```
+
+Then go to http://localhost:3001/docs. Before the API starts, a one-off container runs the release step from the same image, as a Heroku deploy does: the migrations, then the import of `data/one-platform-schemes.json`. The API only starts if it succeeds. It runs the production image with development settings: the local database does not use encryption, and there is no HTTPS redirect.
+
+It uses the same database as `npm run db:start`, so stop `npm run dev` first, as both use port 3001. To stop it, run `docker compose --profile app down`.
+
+To run Find funding against it in Docker, see "Run it in Docker" in the Find funding README, which starts this API too.
+
+About the image:
+
+- it is built in stages, so the final image holds only the compiled code, its production dependencies and the files it reads when it runs
+- it is based on Node.js 24 on Alpine Linux, pinned to an exact version, and Dependabot keeps it up to date
+- it runs as an unprivileged user and cannot change its own files
+- packages' install scripts are not run when it is built, as a defence against a compromised package
+- it needs `BUILD_NUMBER`, `GIT_REF` and `GIT_BRANCH` build arguments, so every image says what it was built from. `compose.yaml` sets them to `local`
+- `.dockerignore` lists the only files the image is built from, so `.env` files and local `node_modules` never go into it
+
+GitHub Actions builds the image and checks it starts and passes its health check on every pull request (the `docker` check). Images are not yet published anywhere.
+
 ## Checks
 
 | Command | What it does |

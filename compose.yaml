@@ -3,6 +3,14 @@
 #   docker compose up -d --wait
 #
 # It uses the same major version of Postgres as Heroku.
+#
+# To run the API in a container too, built from the Dockerfile:
+#
+#   docker compose --profile app up --build
+#
+# This first runs the release step, as Heroku does on each deploy: the
+# database migrations, then the import of the TPX schemes. The API starts
+# once it has finished. See "Run it in Docker" in README.md.
 services:
   postgres:
     image: postgres:18
@@ -18,6 +26,38 @@ services:
       test: ["CMD", "pg_isready", "-U", "funding"]
       interval: 2s
       retries: 15
+
+  release:
+    profiles: [app]
+    build: &build
+      context: .
+      args:
+        BUILD_NUMBER: ${BUILD_NUMBER:-local}
+        GIT_REF: ${GIT_REF:-local}
+        GIT_BRANCH: ${GIT_BRANCH:-local}
+    command: ["sh", "-c", "node dist/migrate.js && node dist/tpx/import.js"]
+    environment: &environment
+      # The production image with development settings: the local database
+      # does not use encryption, and there is no HTTPS redirect.
+      NODE_ENV: development
+      DATABASE_URL: postgres://funding:funding@postgres:5432/funding
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    profiles: [app]
+    build: *build
+    environment: *environment
+    ports:
+      - "127.0.0.1:3001:3001"
+    depends_on:
+      release:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3001/health"]
+      interval: 2s
+      retries: 30
 
 volumes:
   postgres:
